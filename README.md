@@ -9,6 +9,9 @@
 
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
+**STL or 3MF in. Configured 3MF out.**
+Start with an STL model or a saved 3MF project. Export the configured result as a new 3MF project for BambuStudio.
+
 > **This MCP server is for BambuStudio, the desktop slicer. It is NOT for Bambu Lab printer control.**
 > It runs outside BambuStudio and does not change BambuStudio source code.
 > It works with saved projects, not unsaved changes in the GUI.
@@ -148,6 +151,12 @@ The client starts the server automatically. You do not need a separate server te
 For a previous registration or a connection error, read the [client guide](docs/clients.md).
 
 ## 🎯 Give your assistant a print brief
+
+### From STL to a configured 3MF
+
+> Open `/absolute/path/bracket.stl`. Use `list_profiles` to find compatible machine, process, and filament profiles.
+> Use profiles for my machine, material, and nozzle. Inspect the part and compare two print configurations against the baseline.
+> Export my selected revision as `/absolute/path/bracket-configured.3mf` for review in BambuStudio.
 
 ### A bracket with a job to do
 

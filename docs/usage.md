@@ -23,6 +23,10 @@ For a saved 3MF, inspect the retained configuration first.
 For a raw model, find compatible machine, process, and filament profiles with `list_profiles`.
 Do not infer the load direction or material properties from the mesh alone.
 
+For an STL import, the server uses the selected profiles to create a 3MF project in the workspace.
+Export the configured result to a new `.3mf` file with `export_project`.
+The original STL stays unchanged. The exported 3MF contains the geometry and print configuration for BambuStudio.
+
 ## Use a baseline and a small comparison
 
 1. Call `get_environment` to check the runtime.
