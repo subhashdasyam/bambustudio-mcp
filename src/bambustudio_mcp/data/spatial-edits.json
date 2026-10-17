@@ -1,0 +1,17 @@
+{
+  "rotation": {"action": "rotate", "instance": 0, "degrees_xyz": [0, 90, 0]},
+  "support_faces": {"action": "paint", "resource_id": "3D/Objects/object_1.model#1", "face_indices": [0, 1], "kind": "support", "state": "enforce"},
+  "seam_region": {"action": "paint", "resource_id": "3D/Objects/object_1.model#1", "instance": 0, "bounds_mm": [[0, 0, 0], [10, 10, 20]], "kind": "seam", "state": "block"},
+  "modifier": {"action": "modifier_box", "object_id": "1", "bounds_mm": [[0, 0, 0], [10, 10, 20]], "changes": {"wall_loops": 4}},
+  "remove_modifier": {"action": "remove_modifier", "object_id": "1", "volume_id": "3"},
+  "height_range": {"action": "height_range", "target": {"object_id": "1", "min_z": 0, "max_z": 10}, "changes": {"sparse_infill_density": 30}},
+  "layer_heights": {"action": "layer_heights", "object_id": "1", "profile": [[0, 0.2], [10, 0.12], [20, 0.2]]},
+  "notes": [
+    "Use IDs returned by inspect_project; example IDs are placeholders.",
+    "Modifier bounds use object coordinates in millimetres. Paint bounds use world millimetres for the selected instance.",
+    "Paint states: enforce, block, clear. Replacing a selected face replaces its previous subface painting; unselected faces are preserved.",
+    "A shared resource edit affects every instance of that resource.",
+    "Rotation is relative, about the project origin, XYZ order, and places the selected instance on the bed.",
+    "Layer-height profile is a complete replacement with increasing Z values and heights inside nozzle limits."
+  ]
+}

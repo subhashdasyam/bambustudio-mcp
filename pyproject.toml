@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bambustudio-mcp"
+version = "0.1.0"
+description = "Local project configuration and slicing for BambuStudio over MCP"
+requires-python = ">=3.11"
+license = "AGPL-3.0-or-later"
+dependencies = ["mcp==1.23.3", "numpy>=2.0,<3", "trimesh>=4.0,<6", "rtree>=1.2,<2", "defusedxml>=0.7,<1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9", "pytest-asyncio>=0.24,<2"]
+
+[project.scripts]
+bambustudio-mcp = "bambustudio_mcp.server:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bambustudio_mcp"]

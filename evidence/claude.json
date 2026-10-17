@@ -1,0 +1,15 @@
+{
+  "client": "claude",
+  "workflow_succeeded": true,
+  "exit_code": 0,
+  "wall_loops": "3",
+  "has_sliced_gcode": true,
+  "observed_tools": [
+    "get_environment",
+    "open_project",
+    "apply_settings",
+    "start_slice",
+    "get_job",
+    "export_project"
+  ]
+}

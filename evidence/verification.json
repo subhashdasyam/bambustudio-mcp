@@ -1,0 +1,21 @@
+{
+  "tests": {
+    "tests": 33,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0
+  },
+  "test_seconds": 6.248,
+  "real_studio_roundtrip": true,
+  "claude_workflow": true,
+  "codex_workflow": true,
+  "bambustudio_source_changed": false,
+  "compiled_metadata_exporter": {
+    "status": "blocked",
+    "reason": "Boost 1.83 or later development headers and libraries are unavailable"
+  },
+  "exhaustive_option_combinations_verified": false,
+  "gui_visual_review": "not performed",
+  "physical_strength_validated": false,
+  "physical_finish_validated": false
+}

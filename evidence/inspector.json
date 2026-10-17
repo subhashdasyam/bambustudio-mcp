@@ -1,0 +1,21 @@
+{
+  "tools_list_succeeded": true,
+  "tools": [
+    "get_environment",
+    "list_profiles",
+    "open_project",
+    "inspect_project",
+    "list_options",
+    "get_settings",
+    "apply_settings",
+    "restore_revision",
+    "analyze_geometry",
+    "edit_regions",
+    "start_slice",
+    "get_job",
+    "cancel_job",
+    "compare_candidates",
+    "export_project",
+    "open_in_studio"
+  ]
+}
