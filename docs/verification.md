@@ -73,6 +73,27 @@ npx @modelcontextprotocol/inspector --cli \
 
 The command can download the Inspector package. It checks tool discovery, not print quality.
 
+## Glama metadata and build
+
+[glama.json](../glama.json) identifies `subhashdasyam` as the maintainer.
+The [Dockerfile](../Dockerfile) starts the MCP server for Glama introspection.
+The image contains no BambuStudio runtime or profiles. It cannot slice a model without those external requirements.
+
+Use the Dockerfile contents as the build spec in Glama Admin.
+Start a build after the repository update.
+Check the public Schema page after Glama completes introspection.
+The expected interface has 16 tools, four resources, one resource template, and one prompt.
+
+For a local build, run:
+
+```bash
+podman build -t localhost/bambustudio-mcp-glama-check:latest .
+```
+
+The [.dockerignore](../.dockerignore) excludes the local runtime, virtual environment, and generated files from the build context.
+The image runs as a non-root user with a writable workspace in `/tmp`.
+Successful introspection establishes MCP discovery. It does not establish runtime compatibility or print quality.
+
 ## Compare compiled metadata
 
 This developer check requires a complete Studio development build of the same version.
