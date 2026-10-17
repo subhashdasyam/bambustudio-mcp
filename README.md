@@ -7,6 +7,8 @@
 ![Clients: Claude Code and Codex](https://img.shields.io/badge/clients-Claude_Code_%2B_Codex-0d9488)
 [![License: AGPL-3.0-or-later](https://img.shields.io/badge/license-AGPL--3.0--or--later-blue)](LICENSE)
 
+![Demo: STL input, Claude Code tool calls, slice comparisons, and 3MF export](assets/images/bambustudio-mcp-demo-preview.gif)
+
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
 **STL or 3MF in. Configured 3MF out.**
