@@ -9,7 +9,20 @@ from mcp.types import ToolAnnotations
 
 from .service import Service
 
-INSTRUCTIONS = """Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Ask for material, nozzle, intended loads, critical surfaces and time constraints when missing. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
+FILAMENT_INSTRUCTIONS = (
+    "Before print recommendations or slices, confirm the filament material, brand, exact product/variant and color. "
+    "Ask about drying history and calibration. "
+    "Ask only for missing details. Do not infer the actual spool from a saved profile. "
+    "Use the client's web search to find official manufacturer specifications for that exact product. Cite the source URLs. "
+    "Never substitute specifications for another product or variant. "
+    "If exact specifications cannot be verified or web search is unavailable, use a Generic profile from list_profiles. "
+    "Match the confirmed material, printer and nozzle. "
+    "If the material is unknown or no compatible Generic profile exists, ask the user before proceeding. "
+    "Identify values from manufacturer specifications, profiles and calibration. Label Generic values as unverified starting points. "
+    "Check saved filament settings against the confirmed spool before slicing."
+)
+
+INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Ask for nozzle, intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
 
 
 def create_server(service=None):
@@ -149,7 +162,7 @@ def create_server(service=None):
 
     @mcp.prompt()
     def prepare_print(project_id: str, intended_use: str = "unspecified") -> str:
-        return f"Read bambustudio://guide. Inspect project {project_id}. Intended use: {intended_use}. Obtain missing material, load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Make reversible candidates, compare against baseline, and export the selected revision. Never claim measured strength or finish without physical evidence."
+        return f"Read bambustudio://guide. Inspect project {project_id}. Intended use: {intended_use}. {FILAMENT_INSTRUCTIONS} Obtain missing nozzle, load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Make reversible candidates, compare against baseline, and export the selected revision. Never claim measured strength or finish without physical evidence."
 
     return mcp
 

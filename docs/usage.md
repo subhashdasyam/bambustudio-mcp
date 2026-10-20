@@ -12,7 +12,8 @@ Supply these details:
 | Input | Example |
 | --- | --- |
 | Saved project or model | Absolute path to a `.3mf` or `.stl` file |
-| Material and nozzle | PETG, 0.4 mm nozzle, exact filament profile |
+| Filament | Material, brand, exact product/variant, color, drying history and calibration |
+| Printer and nozzle | Bambu Lab P1S, 0.4 mm nozzle |
 | Purpose | A bracket that holds a downward load |
 | Constraints | Screw locations, contact faces, load direction, and expected load |
 | Critical geometry | Hole diameters, fit surfaces, minimum clearances |
@@ -22,6 +23,16 @@ Supply these details:
 For a saved 3MF, inspect the retained configuration first.
 For a raw model, find compatible machine, process, and filament profiles with `list_profiles`.
 Do not infer the load direction or material properties from the mesh alone.
+
+Before print recommendations or slices, the assistant asks for missing filament details.
+The assistant uses the client's web search to find official manufacturer specifications for the exact product/variant.
+It cites source URLs for temperature, drying, cooling and speed guidance.
+Specifications for another product, such as Rapid PETG, do not establish settings for standard PETG.
+
+If exact specifications cannot be verified or web search is unavailable, use a matching Generic material profile.
+Select a compatible profile with `list_profiles`. Label its values as unverified starting points for calibration.
+Keep any known limits from the spool label. Ask the user if the material or a compatible Generic profile is unknown.
+For saved projects, check that the filament settings match the actual spool before a slice.
 
 For an STL import, the server uses the selected profiles to create a 3MF project in the workspace.
 Export the configured result to a new `.3mf` file with `export_project`.

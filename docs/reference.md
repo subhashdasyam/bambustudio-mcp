@@ -37,6 +37,8 @@ The server exposes 16 tools over MCP stdio. Tool discovery supplies the current 
 
 The `prepare_print` prompt accepts `project_id` and an optional `intended_use`.
 It guides inspection, reversible alternatives, comparison, and export.
+It also requests missing filament details and directs manufacturer research through the client's web search.
+If exact specifications cannot be verified or web search is unavailable, it directs the assistant to a compatible Generic profile.
 
 ## Values and scopes
 

@@ -42,6 +42,11 @@ The catalog has explicit restrictions. It does not mean that every GUI control o
 The assistant supplies advice through Claude Code or Codex. The server supplies local tools and slice results.
 It needs no separate model service. Your chosen client still determines how it sends data to its model provider.
 
+Before print recommendations or slices, the assistant asks for missing filament details, including brand and exact product/variant.
+It uses the client's web search for official manufacturer specifications and cites source URLs.
+If exact specifications cannot be verified or web search is unavailable, it uses a compatible Generic material profile.
+Generic values remain starting points for calibration and a small physical sample.
+
 ## 🚀 Quick start
 
 ### 1. Prepare the server

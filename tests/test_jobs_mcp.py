@@ -8,7 +8,7 @@ import pytest
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from bambustudio_mcp.server import create_server
+from bambustudio_mcp.server import FILAMENT_INSTRUCTIONS, create_server
 from bambustudio_mcp.service import Service
 
 
@@ -102,6 +102,10 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime):
         async with ClientSession(read, write) as client:
             initialized = await client.initialize()
             assert initialized.serverInfo.name == "BambuStudio"
+            assert FILAMENT_INSTRUCTIONS in initialized.instructions
+            prompt = await client.get_prompt("prepare_print", {"project_id": "example", "intended_use": "threaded shelf"})
+            assert any(FILAMENT_INSTRUCTIONS in message.content.text for message in prompt.messages)
+            assert "threaded shelf" in prompt.messages[0].content.text
             tools = await client.list_tools()
             assert {"list_options", "apply_settings", "edit_regions", "start_slice"} <= {t.name for t in tools.tools}
             result = await client.call_tool("list_options", {"query": "wall_loops"})
@@ -109,5 +113,6 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime):
             assert 'Wall loops' in result.content[0].text
             resource = await client.read_resource("bambustudio://guide")
             assert "physical" in resource.contents[0].text
+            assert "Generic PETG for confirmed standard PETG" in resource.contents[0].text
             bad = await client.call_tool("get_job", {"job_id": "../../escape"})
             assert bad.isError
