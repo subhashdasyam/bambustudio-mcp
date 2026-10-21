@@ -113,6 +113,51 @@ class Service:
         return {"revision": revision, "scope": scope, "settings": values,
                 "evidence": "project and catalog; Studio effective export is available after slicing"}
 
+    def record_print_context(self, project_id, revision, context):
+        from .preparation import validate_context
+
+        validate_context(context)
+        directory = self._directory(project_id)
+        with locked(directory / "project.lock"):
+            _, state, _, _ = self._load(project_id, revision)
+            if revision != state["head"]:
+                raise ValueError("Stale revision")
+            for observation in context.get("observations", []):
+                if observation.get("job_id"):
+                    job = self.get_job(observation["job_id"])
+                    if job["project_id"] != project_id or job["revision"] != revision or job["status"] != "succeeded":
+                        raise ValueError("Observation job must have succeeded for this exact project revision")
+            record = {"revision": revision, "context": context, "evidence": "user_reported"}
+            atomic_json(directory / "print-context.json", record)
+        return self.get_print_guidance(project_id, revision)
+
+    def get_print_guidance(self, project_id, revision=None):
+        from .preparation import prepare
+
+        directory, _, revision, project = self._load(project_id, revision)
+        path = directory / "print-context.json"
+        record = json.loads(path.read_text()) if path.exists() else {}
+        context = record.get("context", {})
+        report = prepare(self.catalog, project.settings, context)
+        report.update(project_id=project_id, revision=revision, context_revision=record.get("revision"),
+                      context_evidence="user_reported", context=context,
+                      physical_observations=context.get("observations", []) if record.get("revision") == revision else [])
+        if context.get("observations") and record.get("revision") != revision:
+            report["warnings"].append({"code": "observations_from_other_revision", "revision": record["revision"]})
+        return report
+
+    def inspect_slice(self, project_id, revision=None, job_id=None):
+        from .gcode import inspect_sliced_project
+
+        directory, _, revision, _ = self._load(project_id, revision)
+        path = directory / f"{revision}.3mf"
+        if job_id:
+            job = self.get_job(job_id)
+            if job["project_id"] != project_id or job["revision"] != revision or job["status"] != "succeeded":
+                raise ValueError("Slice job must have succeeded for this exact project revision")
+            path = self.workspace / "jobs" / job_id / "sliced.3mf"
+        return dict(inspect_sliced_project(path), project_id=project_id, revision=revision)
+
     def restore_revision(self, project_id, revision, restore):
         self.runtime.require()
         directory = self._directory(project_id)
@@ -318,7 +363,8 @@ class Service:
             results.append({"name": candidate.get("name", candidate_revision), "revision": candidate_revision,
                             "job_id": job["job_id"], "status": job["status"], "estimated_time_seconds": duration,
                             "estimated_filament_g": grams, "meets_measured_constraints": meets,
-                            "strength": "unverified", "surface_finish": "unverified", "plates": plates})
+                            "strength": "unverified", "surface_finish": "unverified", "plates": plates,
+                            "inspection_status": job.get("inspection", {}).get("status", "not_inspected")})
         baseline_time = results[0]["estimated_time_seconds"]
         for candidate in results:
             duration = candidate["estimated_time_seconds"]

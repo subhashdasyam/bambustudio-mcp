@@ -38,6 +38,12 @@ For an STL import, the server uses the selected profiles to create a 3MF project
 Export the configured result to a new `.3mf` file with `export_project`.
 The original STL stays unchanged. The exported 3MF contains the geometry and print configuration for BambuStudio.
 
+Use `get_print_guidance` to receive explicit missing fields and sourced checks for the selected quality concerns.
+Read `bambustudio://print-context`, then use `record_print_context` for the actual printer, each active nozzle, and every assigned spool.
+Include firmware, build plate, enclosure conditions, intended use and each spool's exact feeding path.
+Record unavailable brand or product details as `unknown`. Leave unavailable numeric calibration measurements unset.
+Use physical observations for the tested revision. Do not transfer a finish result to a different revision.
+
 ## Use a baseline and a small comparison
 
 1. Call `get_environment` to check the runtime.
@@ -45,11 +51,13 @@ The original STL stays unchanged. The exported 3MF contains the geometry and pri
 3. Read `bambustudio://guide` for the preparation procedure.
 4. Call `inspect_project` to find object and volume identifiers.
 5. Read the current values with `get_settings`.
+   Call `get_print_guidance` and record confirmed context. Resolve relevant setup mismatches before recommendations.
 6. Call `analyze_geometry` to inspect the dimensions and sampled geometry.
 7. Find applicable controls with `list_options`.
 8. Apply a candidate with `apply_settings` or `edit_regions`.
 9. Call `compare_candidates` with the baseline revision and selected alternatives.
 10. Poll `get_job` until the job reaches a terminal state.
+    Review its `inspection` report separately from Studio success. Use `inspect_slice` for older sliced imports.
 11. Export the selected revision to a new filename with `export_project`.
 12. Review the saved export in BambuStudio.
 

@@ -56,7 +56,7 @@ class Runtime:
             raise ValueError(f"Studio runtime is unavailable or not compatible: {report}")
         return report
 
-    def profile_index(self):
+    def profile_index(self, include_templates=False):
         if not self.profiles or not self.profiles.is_dir():
             return {}
         result = {}
@@ -65,8 +65,12 @@ class Runtime:
                 data = json.loads(path.read_text())
             except (ValueError, OSError):
                 continue
+            if not isinstance(data, dict):
+                continue
             if data.get("type") in {"machine", "process", "filament"} and "name" in data:
                 result.setdefault(data["name"], []).append(path)
+            elif include_templates and "type" not in data:
+                result.setdefault(data.get("name", path.stem), []).append(path)
         return result
 
     def list_profiles(self, query="", kind=None):
@@ -82,28 +86,44 @@ class Runtime:
         return result
 
     def resolve_profile(self, name: str, expected_kind: str):
-        index = self.profile_index()
+        index = self.profile_index(include_templates=True)
         explicit = Path(name).expanduser()
         paths = [explicit.resolve()] if explicit.is_file() else index.get(name, [])
         if len(paths) != 1:
             raise ValueError(f"Profile {name!r} missing or ambiguous; use an explicit JSON path")
 
-        def resolve(path, visited):
+        def reference(path, name, relation):
+            if not isinstance(name, str) or not name:
+                raise ValueError(f"Invalid {relation} profile reference: {name!r}")
+            nearby = path.parent / (name + ".json")
+            candidates = [nearby] if nearby.is_file() else index.get(name, [])
+            if len(candidates) != 1:
+                raise ValueError(f"Missing or ambiguous {relation} profile: {name}")
+            return candidates[0]
+
+        def resolve(path, visited, template=False):
+            path = path.resolve()
             if path in visited:
-                raise ValueError("Preset inheritance cycle")
+                raise ValueError("Preset inheritance/include cycle")
             data = json.loads(path.read_text())
-            if data.get("type") != expected_kind:
+            if not isinstance(data, dict) or data.get("type", expected_kind if template else None) != expected_kind:
                 raise ValueError(f"Expected a {expected_kind} profile: {path}")
             base = {}
+            visited = visited | {path}
             parent = data.get("inherits")
             if parent:
-                nearby = path.parent / (parent + ".json")
-                candidates = [nearby] if nearby.is_file() else index.get(parent, [])
-                if len(candidates) != 1:
-                    raise ValueError(f"Missing or ambiguous inherited profile: {parent}")
-                base = resolve(candidates[0], visited | {path})
+                base = resolve(reference(path, parent, "inherited"), visited, template)
+            includes = data.get("include", [])
+            if isinstance(includes, str):
+                includes = [includes]
+            if not isinstance(includes, list):
+                raise ValueError("Profile include must be a name or list of names")
+            # Studio applies includes after inheritance, then explicit child settings.
+            for name in includes:
+                base.update(resolve(reference(path, name, "included"), visited, template=True))
             base.update(data)
             base.pop("inherits", None)
+            base.pop("include", None)
             return base
 
         return resolve(paths[0], set())

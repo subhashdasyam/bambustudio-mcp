@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Print preparation](usage.md)
 
-The server exposes 16 tools over MCP stdio. Tool discovery supplies the current input schemas.
+The server exposes 19 tools over MCP stdio. Tool discovery supplies the current input schemas.
 
 ## Tools
 
@@ -14,6 +14,9 @@ The server exposes 16 tools over MCP stdio. Tool discovery supplies the current 
 | `inspect_project` | Inspect objects, volumes, instances, plates, bounds, and revisions |
 | `list_options` | Search option types, units, ranges, defaults, enums, and scopes |
 | `get_settings` | Read values and their origin at a selected scope |
+| `record_print_context` | Record declared printer, active nozzles, assigned spools, calibration and physical observations |
+| `get_print_guidance` | Report missing inputs, setup mismatches, stale calibration and sourced rules for selected concerns |
+| `inspect_slice` | Inspect embedded G-code targets, nominal object layers and feature feed commands without execution |
 | `apply_settings` | Validate a batch and create a new revision |
 | `restore_revision` | Copy a historical revision into a new head |
 | `analyze_geometry` | Measure geometry and create SVG previews |
@@ -31,6 +34,8 @@ The server exposes 16 tools over MCP stdio. Tool discovery supplies the current 
 | --- | --- |
 | `bambustudio://guide` | Preparation procedure and reference sources |
 | `bambustudio://spatial-edits` | Exact edit shapes, units, and examples |
+| `bambustudio://quality-guide` | Sourced quality rules, candidate keys, scope limits and physical acceptance checks |
+| `bambustudio://print-context` | Exact context input shape and an incomplete example |
 | `bambustudio://coverage` | Catalog provenance, restrictions, and verification status |
 | `bambustudio://catalog` | Full versioned catalog |
 | `bambustudio://project/{project_id}` | Project inspection report |
@@ -39,6 +44,29 @@ The `prepare_print` prompt accepts `project_id` and an optional `intended_use`.
 It guides inspection, reversible alternatives, comparison, and export.
 It also requests missing filament details and directs manufacturer research through the client's web search.
 If exact specifications cannot be verified or web search is unavailable, it directs the assistant to a compatible Generic profile.
+
+## Structured preparation and slice inspection
+
+Call `get_print_guidance` after import. Record confirmed details with `record_print_context` and the current head revision.
+Use `nozzles` in active project order and `filaments` in assignment order. Read `bambustudio://print-context` for the shape.
+Record firmware, the actual build plate, enclosure and ambient conditions, intended use, and each spool's feeding path.
+An AMS feeder and an AMS used only for dry storage are different paths.
+Partial context produces missing fields. Unknown brand or product values permit an explicit Generic fallback.
+The context records user declarations. A source URL does not independently verify a specification or a calibration.
+
+Each record replaces the project's previous context. It does not change the 3MF or create a print revision.
+Physical observations apply only to the recorded revision. A supplied observation job must match that exact succeeded project revision.
+After a setting change, guidance compares declared calibration values with the selected revision and reports differences.
+Filament, extruder and nozzle-variant indexes are different. Ambiguous vector mappings return unknown candidates.
+These reports guide preparation. Existing slice tools do not require a context record.
+
+New slice jobs save `inspection.json` and return its report through `get_job`.
+Use `inspect_slice` for an existing sliced import or an exact succeeded job.
+Inspection reports commanded targets and nominal slicer comments. It does not measure temperature, attained speed or physical quality.
+Unsupported firmware branches and tool mappings remain unknown. Wall order and seam locations still require preview review.
+Profile resolution includes inherited and included templates when importing with explicit profiles.
+Existing saved projects retain their embedded startup commands. Re-import with corrected profiles and slice again to replace old commands.
+An inspection warning or unknown result is separate from the Studio job's success status.
 
 ## Values and scopes
 

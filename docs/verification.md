@@ -82,7 +82,7 @@ The image contains no BambuStudio runtime or profiles. It cannot slice a model w
 Use the Dockerfile contents as the build spec in Glama Admin.
 Start a build after the repository update.
 Check the public Schema page after Glama completes introspection.
-The expected interface has 16 tools, four resources, one resource template, and one prompt.
+The expected interface has 19 tools, six resources, one resource template, and one prompt.
 
 For a local build, run:
 

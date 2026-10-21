@@ -7,6 +7,12 @@
    Obtain missing nozzle, load, attachment, temperature, dimension, surface and time requirements.
    Preserve unknowns. Do not infer loads from shape.
 
+   Confirm the printer, installed nozzle and affected surface. Then read `bambustudio://quality-guide`.
+   Record firmware, build plate, enclosure conditions, intended use and each spool's feeding path.
+   Distinguish automatic feeding from dry storage with a bypass. Check model-specific accessory support.
+   Select the matching concern: threads, visible walls, seams, tops, support contacts, dimensional fit or joints.
+   Obtain the user's physical observations before a remedy. Use only rules that match the actual setup.
+
 3. Analyze geometry and review previews. Locate thin connections, overhangs, contact areas and likely
    stress concentrations. Label these as geometric observations or engineering hypotheses.
 
@@ -30,6 +36,28 @@
 9. Export a new project and review it in Studio. Design a physical baseline/candidate comparison using
    repeated prints, duration measurements, dimensional checks, defined finish inspection and loads
    representative of intended use. Report strength and finish as unverified until those results exist.
+
+## Quality experiments
+
+The quality guide contains sourced rules, existing setting keys, scope limits and physical acceptance checks.
+It supplies candidate experiments. It does not score finish or establish a universal material recipe.
+
+1. Read the current values with `get_settings`. Check types and scopes with `list_options`.
+2. Check material dryness and nozzle condition before calibration.
+3. Keep flow ratio, flow dynamics K and maximum volumetric flow separate.
+4. Use the printer's supported calibration procedure. P1S requires manual flow dynamics calibration.
+   Generic pressure-advance fields do not implement K calibration for Bambu printers.
+5. Apply one deliberate candidate in a new revision. Reuse supported local edits where applicable.
+6. Review actual slice output and normalized settings. Separate cleanup temperature from object-extrusion temperature.
+   Requested speed and emitted feed commands do not establish actual attained speed.
+7. Compare a small physical specimen with the same critical geometry, orientation, material and local process.
+   A plain hole does not validate a helical thread. Define fit and surface criteria before the trial.
+8. Record the setup, revision and physical observations. Keep fit, finish and strength unverified without those results.
+
+Check the quality guide before each experiment. A zero small-perimeter threshold disables its slowdown.
+The pinned threshold represents equivalent radius, not hole diameter. Inner-outer-inner requires at least three walls.
+Wall sequence, ironing activation and XY hole compensation are project-only in the current catalog.
+These controls can affect other surfaces. Inspect those surfaces before a full print.
 
 ## Filament specifications and Generic fallback
 

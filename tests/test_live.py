@@ -29,6 +29,12 @@ def test_real_studio_roundtrip(tmp_path):
                                   "0.20mm Standard @BBL X1C", ["Bambu PLA Basic @BBL P1S 0.4 nozzle"])
     pid, revision = opened["project_id"], opened["revision"]
     baseline = wait(service, service.start_slice(pid, revision))
+    inspection = service.inspect_slice(pid, revision, baseline["job_id"])
+    first = inspection["plates"][0]["first_object_extrusion"]
+    archive = Project(Path(baseline["directory"]) / "sliced.3mf")
+    assert first["target_temperature_c"] == float(archive.settings["nozzle_temperature_initial_layer"][0])
+    assert first["target_temperature_c"] > 205
+    assert first["status"] in {"matched", "unknown"}
     obj = opened["project"]["objects"][0]
     mesh = opened["project"]["meshes"][0]
     edited = service.apply_settings(pid, revision, {"wall_loops": 4, "sparse_infill_density": 12})

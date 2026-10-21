@@ -27,6 +27,16 @@ def test_detached_job_and_reconnect(service, opened):
     job = await_job(reconnected, job)
     assert job["status"] == "succeeded", job
     assert job["result"]["sliced_plates"][0]["total_predication"] == 60
+    assert job["inspection"]["status"] == "unknown"
+    assert job["artifacts"]["inspection"] == "inspection.json"
+    assert json.loads((reconnected.workspace / "jobs" / job["job_id"] / "inspection.json").read_text())["status"] == "unknown"
+    assert reconnected.inspect_slice(opened["project_id"], opened["revision"], job["job_id"])["status"] == "unknown"
+    changed = reconnected.apply_settings(opened["project_id"], opened["revision"], {"wall_loops": 3})
+    with pytest.raises(ValueError, match="exact project revision"):
+        reconnected.inspect_slice(opened["project_id"], changed["revision"], job["job_id"])
+    with pytest.raises(ValueError, match="exact project revision"):
+        reconnected.record_print_context(opened["project_id"], changed["revision"], {"observations": [
+            {"kind": "surface_finish", "status": "passed", "notes": "Old sample", "job_id": job["job_id"]}]})
 
 
 def test_cancel_queued_job(service, opened):
@@ -94,7 +104,7 @@ async def test_comparison(service, opened):
 
 
 @pytest.mark.asyncio
-async def test_mcp_stdio_protocol(tmp_path, fake_runtime):
+async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
     params = StdioServerParameters(command=sys.executable, args=["-m", "bambustudio_mcp.server"],
                                    env={**os.environ, "BAMBUSTUDIO_WORKSPACE": str(tmp_path / "mcp"),
                                         "BAMBUSTUDIO_EXECUTABLE": str(fake_runtime.executable)})
@@ -108,11 +118,23 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime):
             assert "threaded shelf" in prompt.messages[0].content.text
             tools = await client.list_tools()
             assert {"list_options", "apply_settings", "edit_regions", "start_slice"} <= {t.name for t in tools.tools}
+            assert {"record_print_context", "get_print_guidance", "inspect_slice"} <= {t.name for t in tools.tools}
             result = await client.call_tool("list_options", {"query": "wall_loops"})
             assert not result.isError
             assert 'Wall loops' in result.content[0].text
             resource = await client.read_resource("bambustudio://guide")
             assert "physical" in resource.contents[0].text
             assert "Generic PETG for confirmed standard PETG" in resource.contents[0].text
+            guide = await client.read_resource("bambustudio://quality-guide")
+            assert "threads" in {c["id"] for c in json.loads(guide.contents[0].text)["categories"]}
+            opened = await client.call_tool("open_project", {"path": str(project_file)})
+            project = json.loads(opened.content[0].text)
+            prepared = await client.call_tool("record_print_context", {"project_id": project["project_id"],
+                "revision": project["revision"], "context": {"printer_model": "Bambu Lab P1S", "concerns": ["threads"]}})
+            assert not prepared.isError
+            assert "filaments" in json.loads(prepared.content[0].text)["missing_inputs"]
+            inspected = await client.call_tool("inspect_slice", {"project_id": project["project_id"]})
+            assert not inspected.isError
+            assert json.loads(inspected.content[0].text)["status"] == "unknown"
             bad = await client.call_tool("get_job", {"job_id": "../../escape"})
             assert bad.isError

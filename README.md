@@ -47,6 +47,11 @@ It uses the client's web search for official manufacturer specifications and cit
 If exact specifications cannot be verified or web search is unavailable, it uses a compatible Generic material profile.
 Generic values remain starting points for calibration and a small physical sample.
 
+Structured preparation tools record the actual printer, active nozzles, filaments, calibration, and physical observations.
+They also ask for firmware, build plate, environment, intended use and each spool's feeding path.
+`get_print_guidance` reports missing inputs and setup mismatches, then selects sourced checks for the stated concern.
+Slice jobs also inspect embedded G-code targets, object layers and feature feeds. Unknown firmware behavior remains unknown.
+
 ## 🚀 Quick start
 
 ### 1. Prepare the server
@@ -196,7 +201,7 @@ Saved 3MF projects retain their configuration.
 | [Installation](docs/installation.md) | Official AppImage, extraction, checksums, profiles, workspace, and runtime problems |
 | [Claude Code and Codex](docs/clients.md) | CLI setup, saved paths, connection checks, and the `--env` error |
 | [Print preparation](docs/usage.md) | Useful input, candidate comparisons, revisions, and physical checks |
-| [Tool reference](docs/reference.md) | All 16 tools, resources, scopes, value types, and spatial edits |
+| [Tool reference](docs/reference.md) | All 19 tools, resources, scopes, value types, and spatial edits |
 | [Verification and limits](docs/verification.md) | Recorded evidence, repeatable checks, coverage gaps, and development checks |
 
 ## 🔎 Evidence, without the magic claims

@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 from .common import atomic_json, locked
@@ -57,6 +58,14 @@ def run(directory: Path):
                                       if key in catalog.options and catalog.options[key]["scopes"]
                                       and catalog.decode(key, value) != catalog.decode(key, effective.get(key))]
             state["normalization_evidence"] = "Studio export; local settings remain in the exported project"
+            from .gcode import inspect_sliced_project
+            try:
+                inspection = inspect_sliced_project(directory / "sliced.3mf")
+            except (ValueError, OSError, zipfile.BadZipFile) as error:
+                inspection = {"status": "unknown", "issues": [{"code": "inspection_failed", "message": str(error)}]}
+            atomic_json(directory / "inspection.json", inspection)
+            state["inspection"] = inspection
+            state["artifacts"]["inspection"] = "inspection.json"
     except (InterruptedError, subprocess.TimeoutExpired) as error:
         if request.get("kind") == "comparison":
             latest = json.loads((directory / "state.json").read_text())

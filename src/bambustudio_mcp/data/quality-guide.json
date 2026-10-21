@@ -1,0 +1,819 @@
+{
+  "version": 1,
+  "scope": {
+    "studio_version": "02.08.04.57",
+    "source_revision": "79df7ae309be398ed30c9f397c13c9911c2edc57",
+    "purpose": "Select physical quality experiments from observed defects. This resource does not score or guarantee finish, fit or strength.",
+    "materials": "FFF materials within the confirmed machine, nozzle, plate and material specifications. PETG evidence is conditional on its stated formulation and setup.",
+    "limits": [
+      "Read current catalog types and scopes before each edit.",
+      "Other slicers' documentation explains mechanisms. It does not establish feature parity with this Studio version.",
+      "No source supplies a universal speed, temperature, fan percentage, K value or dimensional offset.",
+      "External experiments do not validate this user's printer, spool or geometry."
+    ]
+  },
+  "prerequisites": [
+    {
+      "id": "hardware_and_feeding_capabilities",
+      "guidance": [
+        "Confirm the actual firmware, plate, enclosure, every nozzle variant and each spool's feeding path.",
+        "Check exact printer, nozzle, filament and accessory documentation before using a profile.",
+        "Distinguish automatic feeding from a dryer used with its feeder bypassed.",
+        "A hotend component rating does not raise the printer's supported temperature limit.",
+        "Preserve unresolved source conflicts. Do not bypass compatibility restrictions by changing a profile label."
+      ],
+      "keys": [],
+      "scope_limits": [
+        "These checks require physical setup declarations and current external documentation."
+      ],
+      "capability_limits": [
+        "The server does not query printer firmware or verify installed accessories.",
+        "Firmware and Studio versions can change accessory and nozzle support.",
+        "A family name or material abbreviation alone does not prove compatibility."
+      ],
+      "acceptance_checks": [
+        "Record exact hardware and material products, document URLs and relevant version requirements.",
+        "Resolve unsupported or conflicting combinations before a physical trial."
+      ],
+      "sources": [
+        {
+          "url": "https://wiki.bambulab.com/en/general/filament-guide-material-table",
+          "evidence_class": "manufacturer_guidance"
+        },
+        {
+          "url": "https://wiki.bambulab.com/en/software/bambu-studio/release/release-note-2-8-2-60",
+          "evidence_class": "manufacturer_release_notes"
+        }
+      ]
+    },
+    {
+      "id": "experiment_applicability",
+      "guidance": [
+        "Keep manufacturer limits, measured experiments and community anecdotes distinct.",
+        "Record an experiment's printer, nozzle, filament formulation and color, orientation, temperature, flow and specimen before transferring its method.",
+        "Use maximum volumetric flow as an extrusion limit, not a surface-finish or strength certificate.",
+        "Do not use a higher flow ratio to compensate for an extrusion system beyond its melting capacity.",
+        "Treat changes of formulation, finish, color or nozzle as reasons to review relevant calibration and physical acceptance."
+      ],
+      "keys": [
+        "filament_max_volumetric_speed",
+        "filament_flow_ratio"
+      ],
+      "scope_limits": [
+        "External experiments justify a candidate method. Their numeric results are not defaults for another setup."
+      ],
+      "capability_limits": [
+        "Filament indexes, physical extruders, nozzle variants and AMS slots are different mappings.",
+        "The server leaves ambiguous calibration-vector comparisons unknown."
+      ],
+      "acceptance_checks": [
+        "Compare a matched baseline and candidate using the actual material and critical geometry.",
+        "Record fit, finish and strength separately. A better appearance does not prove greater strength."
+      ],
+      "sources": [
+        {
+          "url": "https://www.cnckitchen.com/blog/extrusion-system-benchmark-tool-for-fast-prints",
+          "evidence_class": "original_experiment"
+        },
+        {
+          "url": "https://www.cnckitchen.com/blog/how-the-color-of-pla-filament-influences-3d-printed-part-strength",
+          "evidence_class": "original_experiment"
+        }
+      ]
+    },
+    {
+      "id": "identify_setup",
+      "guidance": [
+        "Confirm the printer, nozzle diameter and material, plate, exact filament product and color.",
+        "Identify the defective surface and its intended use.",
+        "Keep unknown properties explicit. A saved filament profile does not identify the actual spool.",
+        "Use exact manufacturer limits. Use a compatible Generic profile as an unverified baseline when exact specifications remain unknown."
+      ],
+      "keys": [],
+      "scope_limits": [],
+      "capability_limits": [
+        "The server cannot identify a physical spool or inspect an unsaved GUI project."
+      ],
+      "acceptance_checks": [
+        "Record the actual spool and installed nozzle.",
+        "Separate manufacturer specifications, profile defaults and measured calibration."
+      ],
+      "sources": [
+        {
+          "url": "https://wiki.bambulab.com/en/software/bambu-studio/calibration_pa",
+          "evidence_class": "manufacturer_procedure"
+        },
+        {
+          "url": "https://www.orcaslicer.com/wiki/calibration/volumetric_speed_calib.html",
+          "evidence_class": "slicer_documentation"
+        }
+      ]
+    },
+    {
+      "id": "calibrate_dry_material",
+      "guidance": [
+        "Check dryness, nozzle condition and extrusion faults before calibration.",
+        "Use the exact manufacturer's procedure for filament drying.",
+        "Keep temperature, maximum volumetric flow, flow dynamics K and flow ratio separate.",
+        "An example calibration sequence is temperature, maximum volumetric flow, pressure advance, flow ratio, then retraction.",
+        "Repeat affected calibration after temperature, throughput, nozzle or filament changes."
+      ],
+      "keys": [
+        "filament_flow_ratio",
+        "filament_max_volumetric_speed",
+        "nozzle_temperature",
+        "nozzle_temperature_initial_layer"
+      ],
+      "scope_limits": [
+        "Nozzle temperature keys are project-only in this catalog. Filament flow ratio and maximum volumetric speed also allow filament scope."
+      ],
+      "capability_limits": [
+        "The server cannot measure moisture, perform physical calibration or confirm a printer-side K value.",
+        "The PETG drying experiment used a different filament and printer. Its recipe and effect size do not transfer automatically.",
+        "For P1S, use Bambu's manual flow dynamics procedure. Other printer models require their supported procedure.",
+        "Generic enable_pressure_advance and pressure_advance fields do not implement Bambu printer K calibration."
+      ],
+      "acceptance_checks": [
+        "Record the procedure, nozzle, filament, temperature and physical result.",
+        "Check a representative sample after calibration. Do not equate an accepted slice with calibration."
+      ],
+      "sources": [
+        {
+          "url": "https://doi.org/10.15376/biores.20.3.7000-7009",
+          "evidence_class": "controlled_experiment"
+        },
+        {
+          "url": "https://wiki.bambulab.com/en/software/bambu-studio/calibration_flow_rate",
+          "evidence_class": "manufacturer_procedure"
+        },
+        {
+          "url": "https://wiki.bambulab.com/en/software/bambu-studio/calibration_pa",
+          "evidence_class": "manufacturer_procedure"
+        },
+        {
+          "url": "https://www.orcaslicer.com/wiki/calibration/volumetric_speed_calib.html",
+          "evidence_class": "slicer_documentation"
+        },
+        {
+          "url": "https://www.orcaslicer.com/wiki/guides/calibration_guide.html",
+          "evidence_class": "slicer_documentation"
+        },
+        {
+          "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+          "evidence_class": "pinned_source"
+        }
+      ]
+    },
+    {
+      "id": "temperature_and_cooling",
+      "guidance": [
+        "Compare temperature within the exact material and nozzle limits.",
+        "Recheck temperature after a substantial flow or speed change.",
+        "Higher cooling can improve bridges and overhangs. Excessive cooling can weaken layer bonds or increase warping.",
+        "Choose cooling from the observed surface and load requirements."
+      ],
+      "keys": [
+        "nozzle_temperature",
+        "fan_min_speed",
+        "fan_max_speed",
+        "overhang_fan_speed",
+        "additional_cooling_fan_speed"
+      ],
+      "scope_limits": [
+        "These temperature and fan keys are project-only in the pinned catalog."
+      ],
+      "capability_limits": [
+        "Slow PETG can ooze at a temperature that works at higher flow.",
+        "A transparency recipe with fans off does not validate ordinary opaque parts or threads.",
+        "No universal fan percentage or temperature follows from material type alone."
+      ],
+      "acceptance_checks": [
+        "Compare the affected underside, visible face and layer adhesion on the same specimen.",
+        "Keep the baseline and other calibration conditions explicit."
+      ],
+      "sources": [
+        {
+          "url": "https://wiki.bambulab.com/en/filament/petg",
+          "evidence_class": "manufacturer_procedure"
+        },
+        {
+          "url": "https://wiki.bambulab.com/en/knowledge-sharing/common-print-quality-problem",
+          "evidence_class": "manufacturer_procedure"
+        }
+      ]
+    },
+    {
+      "id": "verify_effective_output",
+      "guidance": [
+        "Inspect actual slice output before a physical trial.",
+        "Distinguish requested speed, emitted feed commands and actual attained speed.",
+        "Review Studio-normalized settings and warnings.",
+        "Separate purge and nozzle-cleanup temperature targets from first-layer and object-extrusion temperatures."
+      ],
+      "keys": [],
+      "scope_limits": [],
+      "capability_limits": [
+        "A cleanup temperature does not establish object print temperature.",
+        "Time and filament estimates do not measure surface quality, fit or strength.",
+        "A G-code command does not measure the nozzle's actual temperature or attained speed."
+      ],
+      "acceptance_checks": [
+        "Check the temperature context at first object extrusion and later layers.",
+        "Confirm the intended layer heights, feature settings and effective toolpaths."
+      ],
+      "sources": [
+        {
+          "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/machine/Bambu%20Lab%20P1S%200.4%20nozzle%20template%20machine_start_gcode.json",
+          "evidence_class": "pinned_source"
+        },
+        {
+          "url": "https://www.orcaslicer.com/wiki/calibration/volumetric_speed_calib.html",
+          "evidence_class": "slicer_documentation"
+        }
+      ]
+    },
+    {
+      "id": "physical_comparison",
+      "guidance": [
+        "Use a small specimen with the same critical geometry, orientation, material and local process as the final part.",
+        "Compare an unchanged baseline with one deliberate change.",
+        "Define fit, surface or load criteria before the trial.",
+        "Keep physical outcomes unverified until the user supplies observations or measurements."
+      ],
+      "keys": [],
+      "scope_limits": [],
+      "capability_limits": [
+        "A plain hole does not validate a helical thread.",
+        "The server cannot crop specimens, generate thread CAD, measure surface roughness or certify loads."
+      ],
+      "acceptance_checks": [
+        "Record the revision, setup, specimen geometry, criteria and observed result.",
+        "Use repeat samples for important decisions. Compare photographs under the same light."
+      ],
+      "sources": [
+        {
+          "url": "https://www.cnckitchen.com/blog/tips-and-tricks-for-heat-set-inserts",
+          "evidence_class": "practitioner_procedure"
+        },
+        {
+          "url": "https://doi.org/10.15376/biores.20.3.7000-7009",
+          "evidence_class": "controlled_experiment"
+        },
+        {
+          "url": "https://www.mdpi.com/2504-4494/7/1/42",
+          "evidence_class": "controlled_experiment"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": "threads",
+      "label": "Threads and small features",
+      "observation_needed": [
+        "Is the thread tight, loose, rough, damaged or difficult to start?",
+        "Identify the actual screw, thread geometry, engagement depth, axis and defect height."
+      ],
+      "candidate_keys": [
+        "small_perimeter_threshold",
+        "small_perimeter_speed",
+        "outer_wall_speed",
+        "outer_wall_line_width",
+        "wall_loops",
+        "layer_height"
+      ],
+      "rules": [
+        {
+          "id": "small_perimeters",
+          "guidance": [
+            "Inspect the existing small-perimeter threshold before a speed change.",
+            "In the pinned implementation, the threshold is an equivalent radius: loop perimeter divided by 2*pi.",
+            "A zero threshold disables this slowdown for nonempty loops.",
+            "Select a nonzero threshold from the actual contour and compare a calibrated small-perimeter speed.",
+            "Percentage small-perimeter speed is relative to outer-wall speed."
+          ],
+          "keys": [
+            "small_perimeter_threshold",
+            "small_perimeter_speed",
+            "outer_wall_speed"
+          ],
+          "scope_limits": [
+            "These keys allow project, object, volume and height_range scopes. Preserve vector values.",
+            "Use a layer-height profile for regional layer resolution. layer_height itself is project-only."
+          ],
+          "capability_limits": [
+            "Nominal thread diameter alone does not identify every affected contour.",
+            "Slower commanded speed does not guarantee better fit or finish.",
+            "The server does not automatically identify or create thread geometry."
+          ],
+          "acceptance_checks": [
+            "Check emitted speeds on the intended thread contours and unchanged regions.",
+            "Print the same thread, boss and actual screw. Check start, engagement, binding, debris and repeated assembly."
+          ],
+          "sources": [
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/GCode.cpp",
+              "evidence_class": "pinned_source"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/libslic3r.h",
+              "evidence_class": "pinned_source"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            },
+            {
+              "url": "https://www.cnckitchen.com/blog/tips-and-tricks-for-heat-set-inserts",
+              "evidence_class": "practitioner_procedure"
+            }
+          ]
+        },
+        {
+          "id": "thread_resolution",
+          "guidance": [
+            "Inspect the existing orientation and local layer profile before extra refinement.",
+            "Compare local layer resolution or orientation only when the thread geometry requires it.",
+            "Keep functional dimensions unchanged during a surface comparison."
+          ],
+          "keys": [
+            "outer_wall_line_width",
+            "wall_loops",
+            "layer_height"
+          ],
+          "scope_limits": [
+            "Use edit_regions layer_heights within nozzle limits. A layer profile replaces the complete previous profile."
+          ],
+          "capability_limits": [
+            "No fixed layers-per-pitch ratio proves thread quality.",
+            "Rotation can change support needs and other critical surfaces."
+          ],
+          "acceptance_checks": [
+            "Check the actual layer profile through the entire thread.",
+            "Use a specimen with the same pitch, engagement and screw."
+          ],
+          "sources": [
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/xy-hole-contour-compensation",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://www.cnckitchen.com/blog/tips-and-tricks-for-heat-set-inserts",
+              "evidence_class": "practitioner_procedure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "visible_walls",
+      "label": "Visible walls",
+      "observation_needed": [
+        "Identify the cosmetic face and distinguish ripples, corner ringing, horizontal bands, sheen changes and extrusion defects."
+      ],
+      "candidate_keys": [
+        "outer_wall_speed",
+        "outer_wall_acceleration",
+        "smooth_speed_discontinuity_area",
+        "smooth_coefficient",
+        "z_direction_outwall_speed_continuous",
+        "wall_sequence",
+        "wall_loops",
+        "precise_outer_wall"
+      ],
+      "rules": [
+        {
+          "id": "wall_speed",
+          "guidance": [
+            "Compare a speed or acceleration specimen after material calibration.",
+            "Inspect maximum-flow and cooling limits before a speed comparison.",
+            "Use speed smoothing for matching discontinuity defects. Read current settings first.",
+            "Slower speed is a candidate, not a universal improvement."
+          ],
+          "keys": [
+            "outer_wall_speed",
+            "outer_wall_acceleration",
+            "smooth_speed_discontinuity_area",
+            "smooth_coefficient",
+            "z_direction_outwall_speed_continuous"
+          ],
+          "scope_limits": [
+            "outer_wall_acceleration and z_direction_outwall_speed_continuous are project-only.",
+            "The other listed controls allow local scopes according to the catalog."
+          ],
+          "capability_limits": [
+            "Z-direction smoothing targets continuous wall bands. Interrupted geometry can limit its benefit.",
+            "A commanded speed target does not prove actual speed or surface quality."
+          ],
+          "acceptance_checks": [
+            "Check actual toolpaths and time cost.",
+            "Compare the same face under the same light. Check overhangs and dimensions separately."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/parameter/quality-advance-settings",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://www.orcaslicer.com/wiki/calibration/volumetric_speed_calib.html",
+              "evidence_class": "slicer_documentation"
+            }
+          ]
+        },
+        {
+          "id": "wall_order",
+          "guidance": [
+            "Compare wall order only after the user identifies the target surface.",
+            "Inner-outer-inner requires at least three walls for its intended sequence.",
+            "Inspect the actual order around critical holes and narrow shared walls.",
+            "Compare precise outer wall only where adjacent wall deposition can distort the contour."
+          ],
+          "keys": [
+            "wall_sequence",
+            "wall_loops",
+            "precise_outer_wall"
+          ],
+          "scope_limits": [
+            "wall_sequence is project-only. Do not promise a height-range-only wall-order change."
+          ],
+          "capability_limits": [
+            "Preferred order can fail on narrow or shared contours.",
+            "Outer-first behavior can reduce sharp-overhang support. Orca issue reports do not prove this Studio has the same defect."
+          ],
+          "acceptance_checks": [
+            "Verify emitted order on the affected contours.",
+            "Compare hole fit, overhangs and visible walls on physical samples."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/parameter/quality-advance-settings",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://github.com/OrcaSlicer/OrcaSlicer/wiki/quality_settings_wall_and_surfaces",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://github.com/OrcaSlicer/OrcaSlicer/issues/6789",
+              "evidence_class": "reproduced_issue"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seams",
+      "label": "Seams and travel marks",
+      "observation_needed": [
+        "Locate seams relative to visible faces, functional holes and overhangs. Distinguish seam ridges from general roughness."
+      ],
+      "candidate_keys": [
+        "seam_position",
+        "seam_placement_away_from_overhangs",
+        "reduce_crossing_wall",
+        "seam_slope_type",
+        "filament_scarf_seam_type",
+        "override_filament_scarf_seam_setting",
+        "seam_slope_conditional",
+        "seam_slope_entire_loop"
+      ],
+      "rules": [
+        {
+          "id": "seam_placement",
+          "guidance": [
+            "Compare seam placement or existing seam paint before a scarf experiment.",
+            "Random placement distributes seam marks. It does not remove them.",
+            "Keep seams away from critical fit surfaces where geometry permits."
+          ],
+          "keys": [
+            "seam_position",
+            "seam_placement_away_from_overhangs",
+            "reduce_crossing_wall"
+          ],
+          "scope_limits": [
+            "These settings are project-only. Use existing seam paint for local face selection."
+          ],
+          "capability_limits": [
+            "Paint affects every instance of the shared mesh resource.",
+            "Travel detours cost time and do not remove every crossing."
+          ],
+          "acceptance_checks": [
+            "Inspect actual seam locations and travel paths.",
+            "Check the chosen visible face and screw engagement on a physical sample."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/seam",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        },
+        {
+          "id": "conditional_scarf",
+          "guidance": [
+            "Compare conditional contour scarf as a separate experiment after flow calibration.",
+            "Check whether the filament or process setting controls scarf behavior.",
+            "Do not extend scarf to functional holes before a matched fit trial.",
+            "Check activation before tuning: zero scarf length can disable scarf unless entire-wall mode applies, and 100% start height becomes an ordinary seam. Smart scarf can intentionally skip corners or overhangs."
+          ],
+          "keys": [
+            "seam_slope_type",
+            "filament_scarf_seam_type",
+            "override_filament_scarf_seam_setting",
+            "seam_slope_conditional",
+            "seam_slope_entire_loop"
+          ],
+          "scope_limits": [
+            "seam_slope_type is project-only. Filament scarf type allows filament scope.",
+            "A process scarf type does not override the filament unless the override is active."
+          ],
+          "capability_limits": [
+            "Whole-loop scarf and low extrusion on overhangs can cause defects.",
+            "A PLA recipe from another slicer does not validate PETG thread settings."
+          ],
+          "acceptance_checks": [
+            "Verify actual scarf paths and the controlling setting.",
+            "Compare seam appearance, adhesion and dimensions. Retain the ordinary seam baseline."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/seam",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/release/release-note-1-9-1",
+              "evidence_class": "manufacturer_comparison"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tops",
+      "label": "Horizontal top surfaces",
+      "observation_needed": [
+        "Confirm that the defective surface is a horizontal top, not a wall, slope, thread or supported underside."
+      ],
+      "candidate_keys": [
+        "top_surface_pattern",
+        "top_surface_speed",
+        "top_solid_infill_flow_ratio",
+        "ironing_type",
+        "ironing_flow",
+        "ironing_spacing",
+        "ironing_speed",
+        "ironing_inset"
+      ],
+      "rules": [
+        {
+          "id": "top_pattern_and_flow",
+          "guidance": [
+            "Read the current top pattern before a proposed change.",
+            "Retain a monotonic baseline when it already meets the surface goal.",
+            "Compare top flow or speed after extrusion calibration."
+          ],
+          "keys": [
+            "top_surface_pattern",
+            "top_surface_speed",
+            "top_solid_infill_flow_ratio"
+          ],
+          "scope_limits": [
+            "top_surface_pattern is project-only. Check the catalog before a local flow or speed edit."
+          ],
+          "capability_limits": [
+            "Uniform top texture does not establish internal strength."
+          ],
+          "acceptance_checks": [
+            "Inspect actual top paths.",
+            "Compare filled gaps, ridges, sheen and the effect on sharp edges."
+          ],
+          "sources": [
+            {
+              "url": "https://github.com/prusa3d/PrusaSlicer/releases/tag/version_2.3.0-alpha1",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://help.prusa3d.com/article/ironing_177488",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/calibration_flow_rate",
+              "evidence_class": "manufacturer_procedure"
+            }
+          ]
+        },
+        {
+          "id": "ironing_trial",
+          "guidance": [
+            "Compare ironing only on an applicable horizontal top specimen.",
+            "Check flow, spacing and speed together through a bounded experiment.",
+            "For PETG, inspect nozzle deposits and dark particles during the physical trial."
+          ],
+          "keys": [
+            "ironing_type",
+            "ironing_flow",
+            "ironing_spacing",
+            "ironing_speed",
+            "ironing_inset"
+          ],
+          "scope_limits": [
+            "ironing_type is project-only. Local parameter scopes do not provide local activation of ironing."
+          ],
+          "capability_limits": [
+            "Ironing does not fix walls, slopes, threads or supported undersides.",
+            "Ironing adds time and can soften edges. PETG can stick to the nozzle."
+          ],
+          "acceptance_checks": [
+            "Review every affected top surface before export.",
+            "Compare the physical top and edge shape. Report the extra slice time."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/ironing_177488",
+              "evidence_class": "slicer_documentation"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "support_contacts",
+      "label": "Supported surfaces",
+      "observation_needed": [
+        "Identify the support-contact face and distinguish scarring from wall, seam or material defects.",
+        "Confirm support accessibility and any actual interface material."
+      ],
+      "candidate_keys": [
+        "support_top_z_distance",
+        "support_interface_spacing",
+        "support_interface_top_layers",
+        "support_interface_filament"
+      ],
+      "rules": [
+        {
+          "id": "support_contact_trial",
+          "guidance": [
+            "Consider orientation and support paint before interface changes.",
+            "Compare support gap, interface layers or spacing on a representative contact specimen.",
+            "Consider another interface material only after hardware and material compatibility are confirmed."
+          ],
+          "keys": [
+            "support_top_z_distance",
+            "support_interface_spacing",
+            "support_interface_top_layers",
+            "support_interface_filament"
+          ],
+          "scope_limits": [
+            "These support-interface settings are project-only. Use existing support paint for face selection."
+          ],
+          "capability_limits": [
+            "Zero-gap foreign-material recipes do not transfer to same-material PETG supports.",
+            "Dual-nozzle comparison times do not transfer to single-nozzle or AMS systems.",
+            "The server cannot simulate support removal or verify material compatibility.",
+            "The cited Bambu mutual-support procedure covers named PLA Basic and PETG Basic/HF products. It does not certify Matte, Silk, filled, translucent or third-party variants. Other combinations require their own evidence."
+          ],
+          "acceptance_checks": [
+            "Check actual supported regions and material assignments.",
+            "Compare removal effort, scarring, dimensions and adhesion after a physical print."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/filament-acc/filament/h2d-pla-and-petg-mutual-support",
+              "evidence_class": "manufacturer_comparison"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dimensional_fit",
+      "label": "Dimensional fit",
+      "observation_needed": [
+        "Identify the measured error, target tolerance and whether the error affects holes, outer contours or first layers.",
+        "Confirm that binding is dimensional rather than a seam ridge or rough extrusion."
+      ],
+      "candidate_keys": [
+        "xy_hole_compensation",
+        "xy_contour_compensation",
+        "elefant_foot_compensation"
+      ],
+      "rules": [
+        {
+          "id": "hole_compensation",
+          "guidance": [
+            "Use the same filament and process for dimensional calibration.",
+            "Positive XY hole compensation increases eligible closed-hole diameters by twice the setting.",
+            "Choose an offset from measured error, not from a generic recipe.",
+            "Inspect the existing offset before an additional correction."
+          ],
+          "keys": [
+            "xy_hole_compensation",
+            "xy_contour_compensation",
+            "elefant_foot_compensation"
+          ],
+          "scope_limits": [
+            "These keys are project-only. Every eligible contour can change.",
+            "Do not promise per-thread compensation with the current catalog."
+          ],
+          "capability_limits": [
+            "Hole compensation affects closed slice contours.",
+            "It does not independently repair thread pitch, axial clearance, flank geometry or seam ridges.",
+            "Global scaling can alter critical dimensions. A plain bore does not validate a thread."
+          ],
+          "acceptance_checks": [
+            "Measure a matched specimen and all critical affected dimensions.",
+            "For threads, check the actual screw and full engagement on the same geometry."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/xy-hole-contour-compensation",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
+              "evidence_class": "pinned_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "joints",
+      "label": "Joints and local reinforcement",
+      "observation_needed": [
+        "Identify the intended load, direction, assembly cycles and any actual failure.",
+        "Separate cosmetic complaints from structural failure."
+      ],
+      "candidate_keys": [
+        "wall_loops",
+        "sparse_infill_density"
+      ],
+      "rules": [
+        {
+          "id": "joint_choices",
+          "guidance": [
+            "Consider local walls and infill only for an identified structural need.",
+            "Compare the joint and its surrounding load path.",
+            "Explain purpose-designed insert bores or captive nuts as CAD alternatives.",
+            "Inserts can improve repeat assembly, but do not always increase joint strength."
+          ],
+          "keys": [
+            "wall_loops",
+            "sparse_infill_density"
+          ],
+          "scope_limits": [
+            "These keys allow project, object, volume and height_range scopes. Existing box modifiers can define local reinforcement."
+          ],
+          "capability_limits": [
+            "The server cannot create insert bores, captive-nut pockets or thread CAD.",
+            "The cited PETG insert study used another printer and M3 joints.",
+            "The infill study used another material and geometry. Its numeric results are not PETG design limits.",
+            "Geometry observations and slicer estimates do not calculate safe working loads."
+          ],
+          "acceptance_checks": [
+            "Use the same boss, orientation, engagement and assembly method in the specimen.",
+            "Check repeated assembly and representative loads. Record failure mode and specimen setup."
+          ],
+          "sources": [
+            {
+              "url": "https://www.cnckitchen.com/blog/helicoils-threaded-insets-and-embedded-nuts-in-3d-prints-strength-amp-strength-assessment",
+              "evidence_class": "controlled_practitioner_experiment"
+            },
+            {
+              "url": "https://www.cnckitchen.com/blog/tips-and-tricks-for-heat-set-inserts",
+              "evidence_class": "practitioner_procedure"
+            },
+            {
+              "url": "https://www.mdpi.com/2504-4494/7/1/42",
+              "evidence_class": "controlled_experiment"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

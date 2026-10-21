@@ -22,7 +22,7 @@ FILAMENT_INSTRUCTIONS = (
     "Check saved filament settings against the confirmed spool before slicing."
 )
 
-INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Ask for nozzle, intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
+INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
 
 
 def create_server(service=None):
@@ -66,6 +66,32 @@ def create_server(service=None):
         Use keys to bound the response. Studio-normalized settings are returned by completed slice jobs.
         """
         return service.get_settings(project_id, revision, scope, target, keys)
+
+    @mcp.tool(annotations=write)
+    def record_print_context(project_id: str, revision: str, context: dict) -> dict:
+        """Replace user-declared hardware, filament, calibration and physical observations for this project.
+
+        Read bambustudio://print-context for the exact input shape. This records declarations, not verified measurements.
+        It does not edit the 3MF. Observations apply only to this revision; optional job_id must match a succeeded slice.
+        """
+        return service.record_print_context(project_id, revision, context)
+
+    @mcp.tool(annotations=read)
+    def get_print_guidance(project_id: str, revision: str | None = None) -> dict:
+        """Return deterministic missing-input questions, context/settings mismatches and sourced rules for selected concerns.
+
+        Select concerns from bambustudio://quality-guide. Inputs are user declarations; no physical quality is inferred.
+        """
+        return service.get_print_guidance(project_id, revision)
+
+    @mcp.tool(annotations=read)
+    async def inspect_slice(project_id: str, revision: str | None = None, job_id: str | None = None) -> dict:
+        """Inspect embedded G-code targets, object layers and feature feeds without running it.
+
+        With job_id inspect that exact succeeded revision; otherwise inspect the saved project, including older sliced imports.
+        Unknown firmware branches and mappings remain unknown. Targets do not establish actual temperatures or speeds.
+        """
+        return await asyncio.to_thread(service.inspect_slice, project_id, revision, job_id)
 
     @mcp.tool(annotations=write)
     async def apply_settings(project_id: str, revision: str, changes: dict, scope: str = "project", target: dict | None = None) -> dict:
@@ -147,6 +173,16 @@ def create_server(service=None):
         """Spatial edit inputs, units, and example requests."""
         return files("bambustudio_mcp.data").joinpath("spatial-edits.json").read_text()
 
+    @mcp.resource("bambustudio://quality-guide")
+    def quality_guide() -> str:
+        """Sourced preparation rules, prerequisites, candidate settings and physical acceptance checks."""
+        return files("bambustudio_mcp.data").joinpath("quality-guide.json").read_text()
+
+    @mcp.resource("bambustudio://print-context")
+    def print_context() -> str:
+        """Exact user-declaration input shape and example for record_print_context."""
+        return files("bambustudio_mcp.data").joinpath("print-context.json").read_text()
+
     @mcp.resource("bambustudio://coverage")
     def coverage() -> str:
         return json.dumps(service.catalog.data["coverage"], indent=2)
@@ -162,7 +198,7 @@ def create_server(service=None):
 
     @mcp.prompt()
     def prepare_print(project_id: str, intended_use: str = "unspecified") -> str:
-        return f"Read bambustudio://guide. Inspect project {project_id}. Intended use: {intended_use}. {FILAMENT_INSTRUCTIONS} Obtain missing nozzle, load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Make reversible candidates, compare against baseline, and export the selected revision. Never claim measured strength or finish without physical evidence."
+        return f"Read bambustudio://guide and bambustudio://quality-guide. Inspect project {project_id}. Intended use: {intended_use}. {FILAMENT_INSTRUCTIONS} Call get_print_guidance and record confirmed inputs with record_print_context. Resolve missing inputs and mismatches for the actual printer, nozzles and filaments. Obtain missing load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Make reversible candidates, compare against baseline, inspect actual slice commands, and export the selected revision. Use matched physical samples and record fit/finish observations for their exact revision. Never claim measured strength or finish without physical evidence."
 
     return mcp
 
