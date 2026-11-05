@@ -103,3 +103,43 @@ def test_guide_keys_and_context_resource_match_runtime():
         assert all(key in catalog.options for key in category["candidate_keys"])
     schema = json.loads(files("bambustudio_mcp.data").joinpath("print-context.json").read_text())
     validate_context(schema["example"])
+    assert set(schema["fields"]["concerns"]) == {c["id"] for c in guide["categories"]}
+
+
+@pytest.mark.parametrize("printer,count", [("P1S", 1), ("A1", 1), ("X1 Carbon", 1), ("P2S", 1), ("H2D", 2), ("X2D", 2), ("H2C", 2)])
+def test_support_paths_match_confirmed_nozzles(printer, count):
+    declared = context()
+    declared["printer_model"] = f"Bambu Lab {printer}"
+    declared["nozzles"] = declared["nozzles"] * count
+    declared["concerns"] = ["support_contacts"]
+    report = prepare(Catalog(), {"printer_model": declared["printer_model"], "nozzle_diameter": ["0.4"] * count}, declared)
+    paths = {p["path"]: p["status"] for p in report["support_paths"]}
+    assert paths["separate_support_nozzle"] == ("candidate" if count > 1 else "hardware_required")
+    assert paths["single_nozzle_material_changes"] == ("candidate" if count == 1 else "confirm_hardware")
+
+
+def test_unknown_or_mismatched_nozzles_do_not_confirm_support_hardware():
+    declared = context()
+    declared["concerns"] = ["support_contacts"]
+    for diameters in (None, ["0.4", "0.4"]):
+        report = prepare(Catalog(), {"nozzle_diameter": diameters}, declared)
+        assert report["support_paths"][2]["status"] == "confirm_hardware"
+
+
+@pytest.mark.parametrize("height,invalid", [(0.8, True), (0.6, True), (0.4, True), (0.1, False), (0.04, True)])
+def test_layer_height_examples_obey_actual_nozzle_limits(height, invalid):
+    settings = {"layer_height": str(height), "min_layer_height": ["0.08"], "max_layer_height": ["0.28"]}
+    report = prepare(Catalog(), settings, context())
+    assert ("layer_height_outside_nozzle_limits" in {w["code"] for w in report["warnings"]}) == invalid
+
+
+def test_new_remedies_are_reachable_for_p1s_and_other_models():
+    declared = context()
+    declared["concerns"] = ["visible_walls", "fine_detail", "tops", "flexible_feed", "support_contacts"]
+    validate_context(declared)
+    for model in ("P1S", "A1 mini", "X2D"):
+        declared["printer_model"] = f"Bambu Lab {model}"
+        report = prepare(Catalog(), {}, declared)
+        ids = {r["id"] for c in report["selected_guides"] for r in c["rules"]}
+        assert {"upright_curved_surface", "fine_layers_and_nozzle", "adaptive_curved_tops",
+                "low_resistance_flexible_feed", "separate_support_material"} <= ids

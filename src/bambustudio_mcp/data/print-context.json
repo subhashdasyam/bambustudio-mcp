@@ -9,7 +9,17 @@
     "nozzles": "Active nozzles in project order. Each has diameter_mm (positive number), material and variant (text, including standard or high flow as appropriate).",
     "filaments": "Actual spools in project assignment order. Each permits material, brand, product, color, drying, feeding_path, specification_url and calibration. feeding_path identifies external spool or the exact AMS model and feeding/dry-storage bypass mode. Record unknown for unavailable information. Never invent specifications.",
     "calibration": "Optional filament object with temperature_c, max_volumetric_speed_mm3_s and flow_ratio (positive numbers), plus flow_dynamics (text describing the supported method and saved result). Missing measurements remain missing.",
-    "concerns": ["threads", "visible_walls", "seams", "tops", "support_contacts", "dimensional_fit", "joints"],
+    "concerns": [
+      "threads",
+      "visible_walls",
+      "seams",
+      "tops",
+      "support_contacts",
+      "dimensional_fit",
+      "joints",
+      "fine_detail",
+      "flexible_feed"
+    ],
     "observations": "Optional array of {kind, status, notes, job_id?}. Kind: thread_fit, surface_finish or strength. Status: passed, failed or unverified. Notes must describe actual observations. job_id, if present, must match a succeeded slice for this project revision. Observations do not transfer to another revision."
   },
   "example": {
@@ -18,9 +28,28 @@
     "build_plate": "unknown",
     "environment": "unknown",
     "intended_use": "Threads and visible enclosure surfaces; physical acceptance not yet defined",
-    "nozzles": [{"diameter_mm": 0.4, "material": "hardened steel", "variant": "standard"}],
-    "filaments": [{"material": "PETG", "brand": "ELEGOO", "product": "PETG", "color": "unknown", "drying": "unknown", "feeding_path": "unknown", "calibration": {}}],
-    "concerns": ["threads", "visible_walls"],
+    "nozzles": [
+      {
+        "diameter_mm": 0.4,
+        "material": "hardened steel",
+        "variant": "standard"
+      }
+    ],
+    "filaments": [
+      {
+        "material": "PETG",
+        "brand": "ELEGOO",
+        "product": "PETG",
+        "color": "unknown",
+        "drying": "unknown",
+        "feeding_path": "unknown",
+        "calibration": {}
+      }
+    ],
+    "concerns": [
+      "threads",
+      "visible_walls"
+    ],
     "observations": []
   },
   "limits": [

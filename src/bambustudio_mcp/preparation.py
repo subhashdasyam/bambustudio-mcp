@@ -92,6 +92,9 @@ def prepare(catalog, settings, context):
         warnings.append({"code": "printer_mismatch", "declared": context["printer_model"], "configured": configured_printer})
     nozzles = catalog.decode("nozzle_diameter", settings.get("nozzle_diameter"))
     declared = context.get("nozzles", [])
+    nozzle_match = bool(declared and nozzles and len(declared) == len(nozzles) and
+                        all(n.get("diameter_mm") is not None and size is not None and math.isclose(n["diameter_mm"], size, rel_tol=1e-6)
+                            for n, size in zip(declared, nozzles)))
     for index, nozzle in enumerate(declared):
         for key in ("diameter_mm", "material", "variant"):
             if key not in nozzle or (isinstance(nozzle[key], str) and nozzle[key].strip().lower() in unknown):
@@ -143,10 +146,30 @@ def prepare(catalog, settings, context):
     if any(catalog.decode("enable_pressure_advance", settings.get("enable_pressure_advance")) or []):
         if str(configured_printer or context.get("printer_model", "")).startswith("Bambu Lab"):
             warnings.append({"code": "generic_pressure_advance_field_not_supported", "action": "Use the calibration procedure supported by the actual Bambu printer."})
+    layer_height = catalog.decode("layer_height", settings.get("layer_height"))
+    lower = catalog.decode("min_layer_height", settings.get("min_layer_height")) or []
+    upper = catalog.decode("max_layer_height", settings.get("max_layer_height")) or []
+    if layer_height is not None and (layer_height <= 0 or
+            any(v is not None and v > 0 and layer_height < v for v in lower) or
+            any(v is not None and v > 0 and layer_height > v for v in upper)):
+        warnings.append({"code": "layer_height_outside_nozzle_limits", "layer_height_mm": layer_height,
+                         "min_mm": lower, "max_mm": upper,
+                         "action": "Use the installed nozzle's compatible profile limits. Nozzle diameter is not layer height."})
+    support_paths = []
+    if "support_contacts" in context.get("concerns", []):
+        count = len(declared) if nozzle_match else None
+        support_paths = [
+            {"path": "same_material", "status": "candidate", "action": "Compare orientation, support paint and interface settings before hardware changes."},
+            {"path": "single_nozzle_material_changes", "status": "candidate" if count == 1 else "confirm_hardware",
+             "action": "Confirm a compatible feeder, both exact materials, purge requirements and time cost. Ordinary soft TPU cannot use this path by assumption."},
+            {"path": "separate_support_nozzle", "status": "candidate" if count and count > 1 else "hardware_required" if count == 1 else "confirm_hardware",
+             "action": "Requires multiple active nozzles and a supported model/interface pair. Filament selection is not physical nozzle assignment."},
+        ]
     relevant = {key for category in selected for key in category["candidate_keys"]}
     return {"input_status": "incomplete" if missing else "declared", "missing_inputs": missing,
             "questions": [{"field": key, "question": f"Confirm {key} for the actual print setup. Leave unavailable calibration measurements unset."} for key in missing],
             "warnings": warnings, "filament_plans": plans, "prerequisites": guide["prerequisites"],
+            "support_paths": support_paths,
             "current_settings": {key: {"value": catalog.decode(key, settings[key]), "scopes": catalog.options[key]["scopes"]}
                                  for key in sorted(relevant) if key in settings},
             "available_concerns": [{"id": c["id"], "label": c["label"], "observation_needed": c["observation_needed"]} for c in guide["categories"]],

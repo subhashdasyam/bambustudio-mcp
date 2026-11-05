@@ -73,6 +73,16 @@ npx @modelcontextprotocol/inspector --cli \
 
 The command can download the Inspector package. It checks tool discovery, not print quality.
 
+## Version 0.3.0 checks
+
+On 2026-11-05, the automated suite reported 93 passes and one skipped live test.
+The separate live invocation passed against the pinned BambuStudio runtime.
+It covered slicing and spatial edits without a printer connection.
+
+Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, plus multi-nozzle H2D, X2D and H2C declarations.
+These cases check advice paths. They do not establish physical behavior on those printers.
+The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
+
 ## Glama metadata and build
 
 [glama.json](../glama.json) identifies `subhashdasyam` as the maintainer.
@@ -83,6 +93,9 @@ Use the Dockerfile contents as the build spec in Glama Admin.
 Start a build after the repository update.
 Check the public Schema page after Glama completes introspection.
 The expected interface has 19 tools, six resources, one resource template, and one prompt.
+The MCP initialization reports the installed `bambustudio-mcp` package version, not the SDK version.
+Version 0.3.0 adds conditional guidance for curves, detail, domes, flexible feed and support removal.
+Glama refreshes from the repository. Its refresh timing is external to this server.
 
 For a local build, run:
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from importlib.resources import files
+from importlib.metadata import version
 
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
@@ -28,6 +29,8 @@ INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. 
 def create_server(service=None):
     service = service or Service()
     mcp = FastMCP("BambuStudio", instructions=INSTRUCTIONS)
+    # FastMCP 1.23.3 otherwise publishes the SDK version instead of this package's version.
+    mcp._mcp_server.version = version("bambustudio-mcp")
     read = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
     write = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
 

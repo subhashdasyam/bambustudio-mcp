@@ -3,6 +3,7 @@ import json
 import os
 import sys
 import time
+from importlib.metadata import version
 
 import pytest
 from mcp import ClientSession, StdioServerParameters
@@ -112,6 +113,7 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
         async with ClientSession(read, write) as client:
             initialized = await client.initialize()
             assert initialized.serverInfo.name == "BambuStudio"
+            assert initialized.serverInfo.version == version("bambustudio-mcp")
             assert FILAMENT_INSTRUCTIONS in initialized.instructions
             prompt = await client.get_prompt("prepare_print", {"project_id": "example", "intended_use": "threaded shelf"})
             assert any(FILAMENT_INSTRUCTIONS in message.content.text for message in prompt.messages)

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "scope": {
     "studio_version": "02.08.04.57",
     "source_revision": "79df7ae309be398ed30c9f397c13c9911c2edc57",
@@ -383,7 +383,8 @@
         "z_direction_outwall_speed_continuous",
         "wall_sequence",
         "wall_loops",
-        "precise_outer_wall"
+        "precise_outer_wall",
+        "layer_height"
       ],
       "rules": [
         {
@@ -464,6 +465,40 @@
             {
               "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
               "evidence_class": "pinned_source"
+            }
+          ]
+        },
+        {
+          "id": "upright_curved_surface",
+          "guidance": [
+            "Compare the current orientation with an upright curve through edit_regions rotate.",
+            "Use this candidate for geometric stair steps on shallow curves, not every dull or matte surface.",
+            "Check support contact, bed stability, build height and load direction after rotation.",
+            "Compare local wall speed, temperature and cooling separately when gloss varies."
+          ],
+          "keys": [
+            "layer_height"
+          ],
+          "scope_limits": [
+            "Read catalog scopes and the actual nozzle profile before an edit."
+          ],
+          "capability_limits": [
+            "This procedure applies to P1S and other Bambu printers within their confirmed build envelopes.",
+            "Upright orientation can reduce visible steps on one face and worsen supports or strength elsewhere.",
+            "A brighter reflection does not prove a stronger part. No orientation guarantees gloss."
+          ],
+          "acceptance_checks": [
+            "Compare the same curved face under the same light.",
+            "Compare slicer estimates, supports and physical stability against the baseline."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/adaptive-layer-height",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/filament-acc/filament/print-quality/different-gloss",
+              "evidence_class": "manufacturer_procedure"
             }
           ]
         }
@@ -566,9 +601,9 @@
     },
     {
       "id": "tops",
-      "label": "Horizontal top surfaces",
+      "label": "Flat and curved top surfaces",
       "observation_needed": [
-        "Confirm that the defective surface is a horizontal top, not a wall, slope, thread or supported underside."
+        "Distinguish a flat top, rounded dome, vertical wall and supported underside before a remedy."
       ],
       "candidate_keys": [
         "top_surface_pattern",
@@ -578,7 +613,10 @@
         "ironing_flow",
         "ironing_spacing",
         "ironing_speed",
-        "ironing_inset"
+        "ironing_inset",
+        "layer_height",
+        "min_layer_height",
+        "max_layer_height"
       ],
       "rules": [
         {
@@ -653,6 +691,39 @@
               "evidence_class": "pinned_source"
             }
           ]
+        },
+        {
+          "id": "adaptive_curved_tops",
+          "guidance": [
+            "For concentric steps on a dome, compare thinner layers near the shallow top curve.",
+            "In Studio, select the object, open Variable Layer Height and use Adaptive. Review the result before slicing.",
+            "The MCP can apply an explicit local layer_heights profile. It does not generate the GUI Adaptive profile automatically.",
+            "Keep other regions coarser only when their geometry permits it. Compare actual time estimates."
+          ],
+          "keys": [
+            "layer_height",
+            "min_layer_height",
+            "max_layer_height"
+          ],
+          "scope_limits": [
+            "Read catalog scopes and the actual nozzle profile before an edit."
+          ],
+          "capability_limits": [
+            "P1S and other Bambu printers use their installed nozzle limits. Adaptive height is not an ironing setting.",
+            "Organic tree supports do not support variable layer height in the documented workflow.",
+            "Multicolor objects need compatible layer profiles for a shared prime tower. Review support and prime-tower preview.",
+            "Local refinement can save time versus uniformly fine layers, but it can take longer than the coarse baseline."
+          ],
+          "acceptance_checks": [
+            "Inspect dome steps and transitions on a physical specimen.",
+            "Check emitted layer heights, supports and the measured time tradeoff."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/adaptive-layer-height",
+              "evidence_class": "manufacturer_procedure"
+            }
+          ]
         }
       ]
     },
@@ -667,7 +738,8 @@
         "support_top_z_distance",
         "support_interface_spacing",
         "support_interface_top_layers",
-        "support_interface_filament"
+        "support_interface_filament",
+        "support_filament"
       ],
       "rules": [
         {
@@ -704,6 +776,49 @@
             {
               "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintConfig.cpp",
               "evidence_class": "pinned_source"
+            }
+          ]
+        },
+        {
+          "id": "separate_support_material",
+          "guidance": [
+            "On confirmed multi-nozzle hardware such as X2D, compare model material on its supported nozzle with a compatible support interface on another nozzle.",
+            "Verify the exact interface product and auxiliary nozzle restrictions before assignment.",
+            "support_filament and support_interface_filament select filament identities, not physical nozzle IDs. Confirm the separate nozzle mapping in Studio.",
+            "P1S has one nozzle. Compare same-material support settings first, or a compatible material-change interface when the actual feeder and both materials permit it.",
+            "Ordinary soft TPU does not gain automatic material changes from a top-mounted manual spool.",
+            "Compare an interface-only candidate before full support-body replacement. Include purge, time, material and contamination costs."
+          ],
+          "keys": [
+            "support_filament",
+            "support_interface_filament",
+            "support_interface_top_layers",
+            "support_interface_spacing"
+          ],
+          "scope_limits": [
+            "Read catalog scopes and the actual nozzle profile before an edit."
+          ],
+          "capability_limits": [
+            "A second nozzle can improve separation but does not guarantee hand removal in one piece.",
+            "Zero-gap foreign-material interfaces do not transfer to same-material supports.",
+            "The MCP does not purchase hardware or prove that a support pair preserves model layer strength."
+          ],
+          "acceptance_checks": [
+            "Compare a supported underside specimen with the baseline.",
+            "Record removal effort, scars, residue and layer adhesion separately."
+          ],
+          "sources": [
+            {
+              "url": "https://bambulab.com/en/x2d/specs",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/filament/support",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/support",
+              "evidence_class": "manufacturer_procedure"
             }
           ]
         }
@@ -810,6 +925,113 @@
             {
               "url": "https://www.mdpi.com/2504-4494/7/1/42",
               "evidence_class": "controlled_experiment"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fine_detail",
+      "label": "Fine detail and visible layer steps",
+      "observation_needed": [
+        "Identify the smallest required feature and distinguish layer steps from a coarse mesh or extrusion defect.",
+        "Confirm the physical nozzle diameter, material, variant and compatible filament."
+      ],
+      "candidate_keys": [
+        "layer_height",
+        "nozzle_diameter",
+        "min_layer_height",
+        "max_layer_height"
+      ],
+      "rules": [
+        {
+          "id": "fine_layers_and_nozzle",
+          "guidance": [
+            "Compare a smaller layer height within the installed nozzle profile limits.",
+            "Treat a 0.2 mm nozzle as a physical hardware change with compatible machine, process and filament profiles.",
+            "Do not change nozzle_diameter alone to claim a physical nozzle swap.",
+            "The 0.8, 0.6 and 0.4 mm values in a demonstration can describe nozzle diameters. Do not copy them as layer heights.",
+            "Use 0.1 mm layers only when the actual nozzle profile permits them. No fixed value suits every nozzle or filament."
+          ],
+          "keys": [
+            "layer_height",
+            "nozzle_diameter",
+            "min_layer_height",
+            "max_layer_height"
+          ],
+          "scope_limits": [
+            "Read catalog scopes and the actual nozzle profile before an edit."
+          ],
+          "capability_limits": [
+            "A 0.2 mm nozzle needs an exact filament compatibility check, especially with flexible, filled or abrasive formulations.",
+            "Fine layers improve vertical resolution. A smaller nozzle improves lateral detail but increases time and clog sensitivity.",
+            "Neither change restores details absent from the mesh."
+          ],
+          "acceptance_checks": [
+            "Inspect a small specimen with the actual fine feature.",
+            "Compare detail, support removal and print time before a full print."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/adaptive-layer-height",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/general/filament-guide-material-table",
+              "evidence_class": "manufacturer_procedure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "flexible_feed",
+      "label": "Flexible filament feed and stringing",
+      "observation_needed": [
+        "Confirm exact flexible product, Shore hardness and scale, nozzle, drying history and complete feed path.",
+        "Distinguish strings or bubbles from spool drag, feed resistance, buckling or missed extrusion."
+      ],
+      "candidate_keys": [
+        "filament_max_volumetric_speed",
+        "filament_retraction_length",
+        "nozzle_temperature"
+      ],
+      "rules": [
+        {
+          "id": "low_resistance_flexible_feed",
+          "guidance": [
+            "Check moisture and extrusion calibration before attributing every string to feed friction.",
+            "Compare a low-resistance external path for ordinary soft TPU when the exact printer guide supports it.",
+            "A compatible top spool holder can shorten the path into the toolhead. Confirm holder fit, free spool rotation and full toolhead clearance.",
+            "Disconnect or reroute PTFE only as the exact printer and material procedure instructs. Restore the path before automatic filament changes.",
+            "For P1S, confirm its external-spool loading procedure and the exact flexible product. Do not copy X2D loading temperatures or button sequences.",
+            "Keep TPU for AMS distinct from ordinary soft TPU. Verify the exact feeder compatibility before an automatic-feed recommendation."
+          ],
+          "keys": [
+            "filament_max_volumetric_speed",
+            "filament_retraction_length",
+            "nozzle_temperature"
+          ],
+          "scope_limits": [
+            "Read catalog scopes and the actual nozzle profile before an edit."
+          ],
+          "capability_limits": [
+            "This MCP records setup and prepares projects. It does not disconnect tubes, install holders or load filament.",
+            "A direct feed path does not cure wet filament, every retraction defect or a worn nozzle.",
+            "An X2D or P2S holder procedure does not establish fit or clearance on every Bambu printer."
+          ],
+          "acceptance_checks": [
+            "Record the exact hardware path and product.",
+            "Compare a dry, representative flexible specimen for strings, surface gaps and consistent extrusion."
+          ],
+          "sources": [
+            {
+              "url": "https://wiki.bambulab.com/en/knowledge-sharing/tpu-printing-guide",
+              "evidence_class": "manufacturer_procedure"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/x2d/manual/tpu-printing-guide",
+              "evidence_class": "manufacturer_procedure"
             }
           ]
         }

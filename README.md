@@ -12,6 +12,7 @@
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
 **STL or 3MF in. Configured 3MF out.**
+Current release: [0.3.0](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.3.0).
 Start with an STL model or a saved 3MF project. Export the configured result as a new 3MF project for BambuStudio.
 
 > **This MCP server is for BambuStudio, the desktop slicer. It is NOT for Bambu Lab printer control.**
@@ -51,6 +52,8 @@ Structured preparation tools record the actual printer, active nozzles, filament
 They also ask for firmware, build plate, environment, intended use and each spool's feeding path.
 `get_print_guidance` reports missing inputs and setup mismatches, then selects sourced checks for the stated concern.
 Slice jobs also inspect embedded G-code targets, object layers and feature feeds. Unknown firmware behavior remains unknown.
+Guidance covers upright curves, finer layers/nozzles, adaptive domes, flexible feed and support removal for P1S and other Bambu printers.
+Hardware limits apply. A P1S has one nozzle. Separate-nozzle support requires compatible multi-nozzle hardware and materials.
 
 ## 🚀 Quick start
 
@@ -206,7 +209,8 @@ Saved 3MF projects retain their configuration.
 
 ## 🔎 Evidence, without the magic claims
 
-The recorded implementation checks report **33 passes**, a real BambuStudio round trip, and completed Claude Code and Codex workflows.
+Version 0.3.0 checks report **93 automated passes** and a separate real BambuStudio slicing round trip.
+Earlier records also cover Claude Code and Codex workflows.
 See the [evidence and its limits](docs/verification.md) before you interpret these results.
 
 The complete-coverage release gate remains open. A compiled metadata comparison still needs a complete Studio development build.

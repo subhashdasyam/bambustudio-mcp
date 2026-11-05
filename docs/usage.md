@@ -42,6 +42,29 @@ Use `get_print_guidance` to receive explicit missing fields and sourced checks f
 Read `bambustudio://print-context`, then use `record_print_context` for the actual printer, each active nozzle, and every assigned spool.
 Include firmware, build plate, enclosure conditions, intended use and each spool's exact feeding path.
 Record unavailable brand or product details as `unknown`. Leave unavailable numeric calibration measurements unset.
+
+Use `fine_detail` for coarse detail and `flexible_feed` for flexible filament feed defects.
+Use `visible_walls` for curved faces, `tops` for stepped domes, and `support_contacts` for support scars.
+The same concerns apply to P1S and other Bambu printers. Confirm the actual nozzle and material before a remedy.
+
+Compare an upright orientation for shallow curved faces. Check supports, bed stability and load direction after rotation.
+Reduce layer height within the installed nozzle limits. A 0.2 mm nozzle requires a physical swap and compatible profiles.
+The values 0.8, 0.6 and 0.4 mm can describe nozzle diameters. Do not copy them as layer heights.
+
+For domes, compare local variable layers with uniformly fine layers and the baseline.
+Studio provides the Adaptive command. The MCP applies explicit `layer_heights` profiles and does not generate Adaptive profiles automatically.
+Review support compatibility, the prime tower and actual time estimates.
+
+For flexible filament, distinguish moisture defects from feed resistance.
+Use a model-specific external or direct-feed procedure when appropriate. Do not universally disconnect PTFE or assume holder compatibility.
+Keep TPU for AMS distinct from ordinary soft TPU.
+
+For support scars, compare same-material settings before another material.
+P1S uses one nozzle. A second interface material needs compatible material changes, both products and adequate purge.
+Multi-nozzle printers such as X2D need verified model/support materials and a physical nozzle assignment.
+The guidance returns `support_paths` with `candidate`, `hardware_required` or `confirm_hardware` status.
+Candidates still need compatibility confirmation.
+
 Use physical observations for the tested revision. Do not transfer a finish result to a different revision.
 
 ## Use a baseline and a small comparison

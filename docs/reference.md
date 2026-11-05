@@ -59,6 +59,11 @@ Physical observations apply only to the recorded revision. A supplied observatio
 After a setting change, guidance compares declared calibration values with the selected revision and reports differences.
 Filament, extruder and nozzle-variant indexes are different. Ambiguous vector mappings return unknown candidates.
 These reports guide preparation. Existing slice tools do not require a context record.
+Concerns include `fine_detail` and `flexible_feed` alongside the original seven categories.
+The guide covers upright curves, fine layers/nozzles, adaptive domes, flexible feed paths and separate support materials.
+Guidance checks the current layer height against positive profile limits. It does not change hardware or generate a GUI Adaptive profile.
+For support concerns, `support_paths` distinguishes same-material, single-nozzle material changes and separate-nozzle candidates.
+Unknown or mismatched nozzle declarations require hardware confirmation. A candidate does not prove material or feeder compatibility.
 
 New slice jobs save `inspection.json` and return its report through `get_job`.
 Use `inspect_slice` for an existing sliced import or an exact succeeded job.

@@ -10,7 +10,7 @@
    Confirm the printer, installed nozzle and affected surface. Then read `bambustudio://quality-guide`.
    Record firmware, build plate, enclosure conditions, intended use and each spool's feeding path.
    Distinguish automatic feeding from dry storage with a bypass. Check model-specific accessory support.
-   Select the matching concern: threads, visible walls, seams, tops, support contacts, dimensional fit or joints.
+   Select the matching concern: threads, visible walls, seams, tops, support contacts, dimensional fit, joints, fine detail or flexible feed.
    Obtain the user's physical observations before a remedy. Use only rules that match the actual setup.
 
 3. Analyze geometry and review previews. Locate thin connections, overhangs, contact areas and likely
@@ -58,6 +58,32 @@ Check the quality guide before each experiment. A zero small-perimeter threshold
 The pinned threshold represents equivalent radius, not hole diameter. Inner-outer-inner requires at least three walls.
 Wall sequence, ironing activation and XY hole compensation are project-only in the current catalog.
 These controls can affect other surfaces. Inspect those surfaces before a full print.
+
+## Curves, detail, flexible feed and support removal
+
+These candidates apply to P1S and other Bambu printers within their confirmed hardware limits.
+
+1. For steps on shallow curves, compare an upright orientation with the baseline.
+   Check support contact, build height, bed stability and load direction after rotation.
+   Treat dullness from material, temperature or flow as a separate diagnosis. Gloss does not prove strength.
+2. For coarse detail, compare finer layers within the installed nozzle limits.
+   A 0.2 mm nozzle requires a physical swap and compatible profiles and filament.
+   Do not copy 0.8, 0.6 or 0.4 mm nozzle diameters into layer height.
+3. For stepped domes, compare local refinement through a variable layer profile.
+   Studio provides Adaptive in its Variable Layer Height tool. This MCP writes explicit profiles through `layer_heights`.
+   Check organic-support restrictions, prime-tower compatibility and actual slice time.
+4. For flexible filament strings, check dryness before feed resistance.
+   Compare a compatible low-resistance external path when the model-specific procedure permits it.
+   A top holder needs verified fit, free spool rotation and full toolhead clearance.
+   Do not universally disconnect PTFE. Do not copy another printer's load procedure.
+5. For support scars, compare orientation and same-material interface settings first.
+   P1S has one nozzle. Another interface material requires compatible material changes, feeder, purge and both products.
+   A manual top spool does not give ordinary soft TPU automatic material changes.
+   On confirmed multi-nozzle hardware, verify the model/support pair and physical nozzle assignment.
+   A filament index is not a physical nozzle ID. Check removal quality and model adhesion separately.
+
+The demonstration supplied by the user is a source of candidate remedies. Its clip and exact setup are unavailable.
+Use the linked manufacturer procedures to check applicability. Record physical results before a quality claim.
 
 ## Filament specifications and Generic fallback
 
