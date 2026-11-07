@@ -45,6 +45,8 @@ It guides inspection, reversible alternatives, comparison, and export.
 It also requests missing filament details and directs manufacturer research through the client's web search.
 If exact specifications cannot be verified or web search is unavailable, it directs the assistant to a compatible Generic profile.
 
+`open_project` and `inspect_project` return `configuration_key_count`; use `get_settings` for saved values or `list_options` for the catalog.
+
 ## Structured preparation and slice inspection
 
 Call `get_print_guidance` after import. Record confirmed details with `record_print_context` and the current head revision.
@@ -72,8 +74,10 @@ Run `analyze_geometry` for the exact revision and show the highlighted SVG befor
 Issues include stable IDs, category, severity, bbox/Z range, measurement/threshold, rationale, design fix and slicer controls.
 Layer scans identify clearance, roof, contact, island and thin-feature risks. Surface checks identify facet and layer-step candidates.
 All classifications are heuristics. Read `analysis_status`, scan coverage and limitations before a conclusion.
-The response includes all issues and preview links. Detailed clearance probes stay in the full JSON at `report_path`;
-`clearance_region_count` reports their number per issue, with up to 20 entries in `clearance_region_sample`.
+The compact response includes all issue IDs and preview paths. Append `#<issue id>` to a highlighted preview path.
+Issues refer to shared `issue_guidance` and `slicer_fixes` tables. Detailed clearance probes, ceiling arrays,
+overhang face indices and thickness samples stay in the full JSON at `report_path`; the response gives counts and minima.
+Client summaries round floating values to six decimals. Full reports retain the computed precision.
 Runs encode adjacent scan lines and planes; slice correlation expands the original probes without filling between samples.
 The 4,096-run cap reports partial coverage when reached. Slice jobs use the full saved report for correlation.
 Bridge candidates are grouped per part, retaining local `ceiling_regions` for path matching.
@@ -91,10 +95,20 @@ Guidance checks the current layer height against positive profile limits. It doe
 For support concerns, `support_paths` distinguishes same-material, single-nozzle material changes and separate-nozzle candidates.
 Unknown or mismatched nozzle declarations require hardware confirmation. A candidate does not prove material or feeder compatibility.
 
-New slice jobs save `inspection.json` and return its report through `get_job`.
+New slice jobs save `inspection.json` and return a compact summary through `get_job`.
 Jobs snapshot matching geometry as `geometry.json`. Each plate's `geometry_comparison` links evidence to geometry issue IDs.
 Evidence includes paths in sampled nominal clearances, bridge/overhang segments, cosmetic seam candidates and travel over emitted top paths.
 Intended ironing regions report sampled coverage, not a continuous-surface guarantee.
+`inspect_slice` also saves a full report and returns `report_path`. Raw moves and observation examples stay in that file;
+the response retains counts, lengths, issue results and margins. Compact text and structured content remain available over MCP.
+
+Clearance margins use emitted `LINE_WIDTH`, saved feature widths and the first-layer width, with current layer height for Z gaps.
+They estimate round-ended bead envelopes. Values below 0.1 mm warrant review; overlap or interior obstruction is a candidate failure.
+Missing boundary paths remain unknown. Positive margins do not resolve geometry warnings: actual spread and roof sag remain unverified.
+Bridge matching compares bead footprints with local ceiling candidates through the emitted layer height, including rounding tolerance.
+Travel lengths cover only exposed top footprints at the current print Z with no Z-hop, after removing later higher-layer bead footprints.
+Only `top_surfaces` and declared cosmetic regions receive those travel observations.
+Per-issue path totals can overlap. Read `shared_path_count`, `shared_with_geometry_issue_ids` and `unique_path_totals` before adding them.
 
 The inspector applies a common archived extruder offset. Different offsets or multiple plate origins require mapping and remain unknown.
 Use `inspect_slice` for an existing sliced import or an exact succeeded job.

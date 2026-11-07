@@ -17,6 +17,7 @@ from .common import atomic_json, identifier, locked
 from .geometry import analyze
 from .project import Project, children, metadata
 from .runtime import Runtime
+from .reports import geometry_summary, inspection_summary
 
 
 class Service:
@@ -192,7 +193,11 @@ class Service:
                 raise ValueError("Slice job must have succeeded for this exact project revision")
             path = self.workspace / "jobs" / job_id / "sliced.3mf"
         geometry,_=self._geometry_status(directory,revision)
-        return dict(inspect_sliced_project(path,geometry), project_id=project_id, revision=revision)
+        report=dict(inspect_sliced_project(path,geometry), project_id=project_id, revision=revision)
+        # Keep the worker's original inspection snapshot when rechecking a job with current geometry/context.
+        report_path=directory/f"{revision}-slice-inspection{('-'+job_id) if job_id else ''}.json"
+        atomic_json(report_path,report)
+        return inspection_summary(report,report_path)
 
     def restore_revision(self, project_id, revision, restore):
         self.runtime.require()
@@ -227,12 +232,7 @@ class Service:
             issue["highlight_svg"]=[f'{p["path"]}#{issue["id"]}' for p in previews if p.get("projection")]
         report_path = directory / f"{revision}-geometry-report.json"
         atomic_json(report_path, report)
-        # Clearance probes are internal correlation data; MCP duplicates dict results on the wire.
-        issues = [{**{key: value for key, value in issue.items() if key != "clearance_regions"},
-                   "clearance_region_count": len(issue["clearance_regions"]),
-                   "clearance_region_sample": issue["clearance_regions"][:20]}
-                  if "clearance_regions" in issue else issue for issue in report["issues"]]
-        return {**report, "issues": issues, "report_path": str(report_path)}
+        return geometry_summary(report,report_path)
 
     def edit_regions(self, project_id, revision, edits):
         self.runtime.require()
@@ -321,6 +321,8 @@ class Service:
                                  error="Worker no longer exists; start a new slice if needed")
                     atomic_json(job / "state.json", state)
         state["directory"] = str(job)
+        if "inspection" in state:
+            state["inspection"]=inspection_summary(state["inspection"],job/"inspection.json")
         if (job / "studio.log").exists():
             with (job / "studio.log").open("rb") as log:
                 log.seek(max(0, (job / "studio.log").stat().st_size - 4000))

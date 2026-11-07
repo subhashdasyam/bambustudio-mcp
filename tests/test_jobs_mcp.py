@@ -33,7 +33,11 @@ def test_detached_job_and_reconnect(service, opened):
     assert job["inspection"]["status"] == "unknown"
     assert job["artifacts"]["inspection"] == "inspection.json"
     assert json.loads((reconnected.workspace / "jobs" / job["job_id"] / "inspection.json").read_text())["status"] == "unknown"
-    assert reconnected.inspect_slice(opened["project_id"], opened["revision"], job["job_id"])["status"] == "unknown"
+    snapshot=reconnected.workspace/"jobs"/job["job_id"]/"inspection.json"
+    original=snapshot.read_bytes()
+    inspection=reconnected.inspect_slice(opened["project_id"], opened["revision"], job["job_id"])
+    assert inspection["status"] == "unknown"
+    assert Path(inspection["report_path"]).is_file() and snapshot.read_bytes()==original
     changed = reconnected.apply_settings(opened["project_id"], opened["revision"], {"wall_loops": 3})
     with pytest.raises(ValueError, match="exact project revision"):
         reconnected.inspect_slice(opened["project_id"], changed["revision"], job["job_id"])
@@ -131,9 +135,10 @@ def test_geometry_response_keeps_large_probe_arrays_on_disk(service, opened, mon
     report = service.analyze_geometry(opened["project_id"], opened["revision"])
     assert report["issues"][0]["id"] == issue["id"]
     assert report["issues"][0]["clearance_region_count"] == 53000
-    assert len(report["issues"][0]["clearance_region_sample"]) == 20
+    assert "clearance_region_sample" not in report["issues"][0]
     assert "clearance_regions" not in report["issues"][0]
-    assert report["issues"][0]["highlight_svg"]
+    assert "highlight_svg" not in report["issues"][0]
+    assert report["previews"] and "#<issue id>" in report["highlight_anchor"]
     assert len(json.loads(Path(report["report_path"]).read_text())["issues"][0]["clearance_regions"]) == 53000
     # Include both MCP representations: a Python-only geometry test missed this transport failure.
     wire = CallToolResult(content=[TextContent(type="text", text=json.dumps(report, indent=2))], structuredContent=report)
@@ -212,13 +217,17 @@ async def test_real_stand_geometry_over_stdio(tmp_path):
             project = json.loads(opened.content[0].text)
             result = await client.call_tool("analyze_geometry", {"project_id": project["project_id"]})
             assert not result.isError
-            # Claude Code rejects a single stdio message above 10 MiB; leave ample headroom.
-            assert len(result.model_dump_json(by_alias=True).encode()) < 1024 * 1024
+            # Check the complete MCP result, including both text and structured content.
+            assert len(result.model_dump_json(by_alias=True).encode()) < 60_000
             report = json.loads(result.content[0].text)
             assert {'holes_lying_flat', 'print_in_place', 'bed_contact', 'faceting', 'clearances'} <= {
                 issue['category'] for issue in report['issues']}
             assert any(issue.get('clearance_region_count', 0) > 0 for issue in report['issues'])
-            assert all(len(issue.get('clearance_region_sample', [])) <= 20 for issue in report['issues'])
+            assert all('clearance_region_sample' not in issue for issue in report['issues'])
+            assert result.structuredContent==report
+            assert result.content[0].text==json.dumps(report,separators=(',',':'))
+            assert all('highlight_svg' not in issue for issue in report['issues'])
+            assert all('sampled_thickness' not in mesh and 'overhang_face_indices' not in mesh for mesh in report['meshes'])
             assert all('clearance_regions' not in issue for issue in report['issues'])
             detailed = json.loads(Path(report['report_path']).read_text())
             assert [i['id'] for i in detailed['issues']] == [i['id'] for i in report['issues']]
@@ -227,10 +236,20 @@ async def test_real_stand_geometry_over_stdio(tmp_path):
             assert all(Path(preview['path']).is_file() for preview in report['previews'])
             inspected = await client.call_tool('inspect_slice', {'project_id': project['project_id']})
             assert not inspected.isError
-            assert len(inspected.model_dump_json(by_alias=True).encode()) < 10 * 1024 * 1024
+            assert len(inspected.model_dump_json(by_alias=True).encode()) < 60_000
+            assert inspected.content[0].text==json.dumps(inspected.structuredContent,separators=(',',':'))
             comparisons = [plate['geometry_comparison'] for plate in json.loads(inspected.content[0].text)['plates']]
             assert comparisons and all(item['status'] == 'observed' for item in comparisons)
+            assert all('segments' not in feature for c in comparisons for feature in c['feature_paths'].values())
             ids = {issue['id'] for issue in report['issues']}
             assert all(item['geometry_issue_id'] in ids for c in comparisons for item in c['issue_results'])
             assert any(c['observations'] for c in comparisons)
+            results={item['geometry_issue_id']:item for c in comparisons for item in c['issue_results']}
+            roofs=[issue for issue in report['issues'] if issue['category']=='bridges']
+            assert sum('bridge_path' in results[issue['id']]['kinds'] for issue in roofs)>=2
+            margins=[item['clearance_margin'] for item in results.values() if item['category']=='clearances']
+            assert all(item['remaining_margin_mm'] is not None for item in margins)
+            assert any(item['status']=='bead_overlap_candidate' for item in margins)
+            assert all(results[o['geometry_issue_id']]['category'] in {'top_surfaces','cosmetic_faces'}
+                       for c in comparisons for o in c['observations'] if o['kind']=='travel_over_finished_top')
             assert not (await client.call_tool('list_options', {'query': 'wall_loops'})).isError

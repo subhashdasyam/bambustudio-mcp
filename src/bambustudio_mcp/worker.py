@@ -65,7 +65,8 @@ def run(directory: Path):
             except (ValueError, OSError, zipfile.BadZipFile) as error:
                 inspection = {"status": "unknown", "issues": [{"code": "inspection_failed", "message": str(error)}]}
             atomic_json(directory / "inspection.json", inspection)
-            state["inspection"] = inspection
+            from .reports import inspection_summary
+            state["inspection"] = inspection_summary(inspection,directory/"inspection.json")
             state["artifacts"]["inspection"] = "inspection.json"
     except (InterruptedError, subprocess.TimeoutExpired) as error:
         if request.get("kind") == "comparison":

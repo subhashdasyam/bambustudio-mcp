@@ -137,6 +137,13 @@ STL facets cannot prove that a small angular step is an intentional stop or an e
 G-code correlation adds the archived extruder offset to emitted XY coordinates when all possible offsets agree.
 Differing extruder offsets and unmodeled plate origins remain unknown.
 Outer-wall starts after travel are seam candidates. They do not establish an exact physical seam.
+Both geometry and slice tools return compact summaries with a full `report_path`. Read shared guidance and slicer-setting tables.
+Preview paths appear once; append `#<issue id>` to highlight an issue. Raw indices, probes, samples and paths stay in the saved reports.
+Clearance results estimate bead edges using emitted line width or saved feature/first-layer width and actual layer height.
+Review margins below 0.1 mm and overlap candidates. Positive margins do not rule out actual spread, roof sag or fusion.
+Bridge matching includes the bead footprint and the emitted layer above a geometric ceiling.
+Top-travel observations exclude Z-hop and later-covered footprints, and link only to top or cosmetic issues.
+Shared observations can appear under several issue IDs. Use unique path totals to avoid counting them twice.
 Ironing coverage checks sampled intended top points with the archived spacing. It does not prove every point is smooth.
 
 ## Primary references

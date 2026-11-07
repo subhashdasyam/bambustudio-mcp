@@ -60,7 +60,7 @@ def test_real_studio_roundtrip(tmp_path):
     assert baseline["result"]["sliced_plates"][0]["total_predication"] > 0
     assert sliced["result"]["sliced_plates"][0]["filaments"][0]["total_used_g"] > 0
     report = service.analyze_geometry(pid, edited["revision"])
-    assert len(report["meshes"][0]["sampled_thickness"]) > 0
+    assert report["meshes"][0]["sampled_thickness_count"] > 0
     direct = tmp_path / "direct"
     original = service._directory(pid) / f"{revision}.3mf"
     service.runtime.run(["--slice", "0", "--export-3mf", "direct.3mf", str(original)], direct)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 
 import numpy as np
 from rtree import index
@@ -11,20 +12,86 @@ from .catalog import Catalog
 
 # Pinned GCodeWriter.hpp rounds XYZ/IJ to three decimals; radius comparisons need the accumulated rounding budget.
 COORDINATE_TOLERANCE_MM = 3 * 10**-3
+MARGIN_REVIEW_MM = 0.1
 
 
-def box_crossing(a, b, bounds):
+def capsule_interval(c, d, a, b, radius):
+    """Distance interval along c..d covered by a round-ended a..b bead footprint."""
+    c,d,a,b=(np.asarray(p,dtype=float)[:2] for p in (c,d,a,b))
+    length=float(np.linalg.norm(d-c))
+    if length<1e-12:
+        return None
+    v=(d-c)/length
+    intervals=[]
+    for point in (a,b):
+        offset=c-point
+        along=float(offset@v)
+        disc=radius**2-float(offset@offset)+along**2
+        if disc>=-1e-10:
+            root=math.sqrt(max(0,disc))
+            intervals.append((-along-root,-along+root))
+    delta=b-a
+    span=float(np.linalg.norm(delta))
+    if span>1e-12:
+        u=delta/span
+        normal=np.array([-u[1],u[0]])
+        low,high=0.,length
+        for offset,slope,lower,upper in ((float((c-a)@u),float(v@u),0.,span),
+                                        (float((c-a)@normal),float(v@normal),-radius,radius)):
+            if abs(slope)<1e-12:
+                if not lower<=offset<=upper:
+                    low,high=1.,0.
+            else:
+                x,y=sorted(((lower-offset)/slope,(upper-offset)/slope))
+                low,high=max(low,x),min(high,y)
+        if low<=high:
+            intervals.append((low,high))
+    intervals=[(max(0.,lo),min(length,hi)) for lo,hi in intervals if max(0.,lo)<=min(length,hi)]
+    return (min(lo for lo,_ in intervals),max(hi for _,hi in intervals)) if intervals else None
+
+
+def union_intervals(intervals):
+    result=[]
+    for lo,hi in sorted(intervals):
+        if hi<=lo+1e-8:
+            continue
+        if result and lo<=result[-1][1]+1e-8:
+            result[-1][1]=max(result[-1][1],hi)
+        else:
+            result.append([lo,hi])
+    return result
+
+
+def uncovered_intervals(intervals, covered):
+    result=union_intervals(intervals)
+    for start,end in union_intervals(covered):
+        pieces=[]
+        for lo,hi in result:
+            if end<=lo or start>=hi:
+                pieces.append([lo,hi])
+            else:
+                if lo<start: pieces.append([lo,start])
+                if end<hi: pieces.append([end,hi])
+        result=pieces
+    return result
+
+
+def box_interval(a, b, bounds):
     low, high = np.asarray(bounds)
     delta = b-a
     enter, leave = 0., 1.
     for axis in range(3):
         if abs(delta[axis]) < 1e-12:
             if a[axis] < low[axis]-1e-6 or a[axis] > high[axis]+1e-6:
-                return False
+                return None
         else:
             t = sorted(((low[axis]-a[axis])/delta[axis], (high[axis]-a[axis])/delta[axis]))
             enter, leave = max(enter,t[0]), min(leave,t[1])
-    return enter <= leave
+    return (enter,leave) if enter<=leave else None
+
+
+def box_crossing(a,b,bounds):
+    return box_interval(a,b,bounds) is not None
 
 
 def gap_crossing(a, b, c, d, margin=0.):
@@ -100,9 +167,19 @@ class ToolpathComparison:
         self.top_lines = []
         self.top_index = index.Index()
         self.top_paths_truncated = False
+        self.deposited=[]
+        self.deposition_index=index.Index()
+        self.travel_candidates=[]
+        self.last_print_z=None
+        self.gap_edges={}
+        self.event_paths={}
+        self.shared_paths={}
         self.travelled = True
         self.width = self.report.get("parameters",{}).get("line_width_mm")
         self.layer_height = self.report.get("parameters",{}).get("layer_height_mm")
+        self.emitted_width=None
+        self.first_height=self._positive("initial_layer_print_height") or self.layer_height
+        self.first_width=self._positive("initial_layer_line_width")
         offsets=Catalog().decode("extruder_offset",settings.get("extruder_offset"))
         self.offset=None
         if offsets and all(len(v)==2 and np.isfinite(v).all() for v in offsets) and all(np.allclose(v,offsets[0],rtol=0,atol=1e-8) for v in offsets):
@@ -136,6 +213,23 @@ class ToolpathComparison:
                 self.top_samples[issue["id"]] = samples
                 self.covered[issue["id"]] = np.zeros(len(samples),dtype=bool)
 
+    def _positive(self,key):
+        try:
+            value=float(self.settings.get(key))
+            return value if math.isfinite(value) and value>0 else None
+        except (ValueError,TypeError):
+            return None
+
+    def bead_width(self,feature,z):
+        if self.emitted_width:
+            return self.emitted_width
+        if self.first_height and z<=self.first_height+COORDINATE_TOLERANCE_MM and self.first_width:
+            return self.first_width
+        key={"Outer wall":"outer_wall_line_width","Inner wall":"inner_wall_line_width",
+             "Top surface":"top_surface_line_width","Sparse infill":"sparse_infill_line_width",
+             "Internal solid infill":"internal_solid_infill_line_width","Support":"support_line_width"}.get(feature)
+        return (self._positive(key) if key else None) or self.width
+
     def unknown(self, message):
         self.reasons.add(message)
 
@@ -146,10 +240,13 @@ class ToolpathComparison:
                                           "count":0,"total_length_mm":0.,"z_range_mm":[float(a[2]),float(a[2])],"examples":[]})
         event["count"] += 1
         event["total_length_mm"] += length
+        path_id=hashlib.sha256(repr((line,tuple(a),tuple(b))).encode()).hexdigest()[:14]
+        self.event_paths.setdefault(key,set()).add(path_id)
+        self.shared_paths.setdefault((path_id,kind),[length,set()])[1].add(issue_id)
         event["z_range_mm"] = [min(event["z_range_mm"][0],float(min(a[2],b[2]))),max(event["z_range_mm"][1],float(max(a[2],b[2])))]
         if len(event["examples"]) < 20:
             direction = (b-a)/length if length else b-a
-            event["examples"].append({"line":line,"z_mm":float(b[2]),"feature":feature,"length_mm":length,
+            event["examples"].append({"path_id":path_id,"line":line,"z_mm":float(b[2]),"feature":feature,"length_mm":length,
                                       "direction":direction.tolist(),"start_mm":a.tolist(),"end_mm":b.tolist()})
 
     def move(self, a, b, extruding, feature, line, command, words, conditional=False):
@@ -173,13 +270,28 @@ class ToolpathComparison:
             for c,d in zip(points,points[1:]):
                 self._segment(c,d,extruding,feature,line)
         else:
+            points=np.array([a,b])
             self._segment(a,b,extruding,feature,line)
+        if extruding and feature not in {"Support","Support interface","Brim","Skirt"} and self.top_lines:
+            if len(self.deposited)<200000:
+                radius=self.bead_width(feature,float(b[2]))/2
+                low,high=points.min(0),points.max(0)
+                self.deposition_index.insert(len(self.deposited),(low[0]-radius,low[1]-radius,high[0]+radius,high[1]+radius))
+                self.deposited.append((points,radius,line))
+            else:
+                self.top_paths_truncated=True
 
     def _segment(self,a,b,extruding,feature,line):
         low,high = np.minimum(a,b),np.maximum(a,b)
         if extruding:
+            width=self.bead_width(feature,float(b[2]))
+            radius=width/2
+            height=self.layer_height or 0.
+            self.last_print_z=float(b[2])
             hit_ids=set()
-            for item in self.index.intersection(tuple(low)+tuple(high)):
+            search_low=low-np.array([radius+MARGIN_REVIEW_MM,radius+MARGIN_REVIEW_MM,height])
+            search_high=high+np.array([radius+MARGIN_REVIEW_MM,radius+MARGIN_REVIEW_MM,0])
+            for item in self.index.intersection(tuple(search_low)+tuple(search_high)):
                 issue_id,region = self.gaps[item]
                 c,d = np.asarray(region["a_mm"]),np.asarray(region["b_mm"])
                 if abs(d[2]-c[2]) > 1e-6:
@@ -187,16 +299,53 @@ class ToolpathComparison:
                     inside = min(b[2],a[2]) > min(c[2],d[2])+1e-5 and max(b[2],a[2]) < max(c[2],d[2])-1e-5
                     near = segment_distance(a[:2],b[:2],c[None,:2])[0] < self.width/20
                     hit = inside and near
+                    gap=float(abs(d[2]-c[2]))
+                    floor,ceiling=float(low[2]-height),float(high[2])
+                    lo,hi=sorted((float(c[2]),float(d[2])))
+                    close=segment_distance(a[:2],b[:2],c[None,:2])[0]<=radius
+                    seen_left=close and floor<=lo+MARGIN_REVIEW_MM and ceiling>=lo-MARGIN_REVIEW_MM
+                    seen_right=close and floor<=hi+MARGIN_REVIEW_MM and ceiling>=hi-MARGIN_REVIEW_MM
+                    consumed_left=max(0.,ceiling-lo) if seen_left and floor<=lo+1e-6 else 0.
+                    consumed_right=max(0.,hi-floor) if seen_right and ceiling>=hi-1e-6 else 0.
+                    interior=close and floor>lo+1e-6 and ceiling<hi-1e-6
+                    layer=None
                 else:
                     z_low,z_high=region["z_range_mm"]
                     hit = z_low+1e-6 < b[2] <= z_high+1e-6 and gap_crossing(a,b,c,d,COORDINATE_TOLERANCE_MM)
+                    if high[2]-height>=z_high-1e-6 or low[2]<=z_low+1e-6:
+                        continue
+                    gap=float(np.linalg.norm(d[:2]-c[:2]))
+                    distances=segment_distance(a[:2],b[:2],np.array([c[:2],d[:2]]))
+                    seen_left,seen_right=distances<=radius+MARGIN_REVIEW_MM
+                    interval=capsule_interval(c,d,a,b,radius)
+                    consumed_left=interval[1] if seen_left and interval and interval[0]<=1e-6 else 0.
+                    consumed_right=gap-interval[0] if seen_right and interval and interval[1]>=gap-1e-6 else 0.
+                    interior=interval is not None and interval[0]>1e-6 and interval[1]<gap-1e-6 and interval[1]>interval[0]+1e-6
+                    layer=round(float(b[2]),6)
+                if seen_left or seen_right or interior:
+                    edges=self.gap_edges.setdefault((item,layer),{"left":None,"right":None,"gap_mm":gap,"z_mm":float(b[2]),"width_mm":width,"interior_obstruction":False})
+                    for side,seen,consumed in (("left",seen_left,consumed_left),("right",seen_right,consumed_right)):
+                        if seen and (edges[side] is None or consumed>edges[side]):
+                            edges[side]=consumed
+                            edges["z_mm"]=float(b[2])
+                    edges["interior_obstruction"]|=interior
+                    edges["width_mm"]=max(edges["width_mm"],width)
                 if hit:
                     hit_ids.add(issue_id)
             for issue_id in sorted(hit_ids):
                 self.record(issue_id,"extrusion_in_clearance",a,b,line,feature)
             if feature in {"Bridge","Internal bridge","Overhang wall"}:
-                matched = [i for i in self.issues if i["category"] in {"bridges","holes_lying_flat","overhangs","floating_islands","bed_contact"}
-                           and any(box_crossing(a,b,region["bbox_mm"]) for region in i.get("ceiling_regions",[{"bbox_mm":i["location"]["bbox_mm"]}]))]
+                matched=[]
+                for issue in self.issues:
+                    if issue["category"] not in {"bridges","holes_lying_flat","overhangs","floating_islands","bed_contact"}:
+                        continue
+                    for region in issue.get("ceiling_regions",[{"bbox_mm":issue["location"]["bbox_mm"]}]):
+                        bounds=np.array(region["bbox_mm"],dtype=float)
+                        bounds[0]-=[radius,radius,COORDINATE_TOLERANCE_MM]
+                        bounds[1]+=[radius,radius,height+COORDINATE_TOLERANCE_MM]
+                        if box_crossing(a,b,bounds):
+                            matched.append(issue)
+                            break
                 for issue in matched:
                     self.record(issue["id"],"bridge_path" if "bridge" in feature.lower() else "overhang_perimeter",a,b,line,feature)
                 length=float(np.linalg.norm(b-a))
@@ -236,28 +385,93 @@ class ToolpathComparison:
                         self.record(issue["id"],"ironing_in_intended_region",a,b,line,feature)
             if feature=="Top surface":
                 if len(self.top_lines)<20000:
-                    self.top_index.insert(len(self.top_lines),(min(a[0],b[0]),min(a[1],b[1]),max(a[0],b[0]),max(a[1],b[1])))
-                    self.top_lines.append((a,b))
+                    self.top_index.insert(len(self.top_lines),(low[0]-radius,low[1]-radius,high[0]+radius,high[1]+radius))
+                    self.top_lines.append((a,b,width))
                 else:
                     self.top_paths_truncated=True
             self.travelled=False
         else:
             self.travelled=True
-            if np.linalg.norm(b[:2]-a[:2])<1e-8:
+            if np.linalg.norm(b[:2]-a[:2])<1e-8 or self.last_print_z is None or max(abs(a[2]-self.last_print_z),abs(b[2]-self.last_print_z))>COORDINATE_TOLERANCE_MM:
                 return
+            intervals={}
             for item in self.top_index.intersection((low[0],low[1],high[0],high[1])):
-                c,d=self.top_lines[item]
-                if min(a[2],b[2]) < max(c[2],d[2])-1e-5:
+                c,d,top_width=self.top_lines[item]
+                if abs(b[2]-c[2])>COORDINATE_TOLERANCE_MM:
                     continue
-                if gap_crossing(a,b,c,d):
+                interval=capsule_interval(a,b,c,d,top_width/2)
+                if interval:
                     for issue in self.issues:
-                        if issue["category"] in {"cosmetic_faces","top_surfaces","faceting"} and box_crossing(c,d,issue["location"]["bbox_mm"]):
-                            self.record(issue["id"],"travel_over_finished_top",a,b,line,feature or "Travel")
-                    break
+                        if issue["category"] not in {"cosmetic_faces","top_surfaces"}:
+                            continue
+                        bounds=np.array(issue["location"]["bbox_mm"],dtype=float)
+                        bounds[0,2]-=COORDINATE_TOLERANCE_MM
+                        bounds[1,2]+=(self.layer_height or 0)+COORDINATE_TOLERANCE_MM
+                        span=box_interval(a,b,bounds)
+                        if span:
+                            length=float(np.linalg.norm(b[:2]-a[:2]))
+                            lo,hi=max(interval[0],span[0]*length),min(interval[1],span[1]*length)
+                            if lo<hi:
+                                intervals.setdefault(issue["id"],[]).append((lo,hi))
+            if intervals:
+                self.travel_candidates.append((a,b,line,intervals))
 
     def result(self):
         if self.top_paths_truncated:
-            self.unknown("Finished top path cache reached 20000 segments; later crossings can be missed.")
+            self.unknown("Top/deposition cache reached its segment limit; exposed-top travel was not evaluated.")
+        else:
+            for a,b,line,regions in self.travel_candidates:
+                low,high=np.minimum(a,b),np.maximum(a,b)
+                covered=[]
+                remaining=union_intervals([interval for intervals in regions.values() for interval in intervals])
+                for item in self.deposition_index.intersection((low[0],low[1],high[0],high[1])):
+                    points,radius,later=self.deposited[item]
+                    if later<=line or points[:,2].min()<=b[2]+COORDINATE_TOLERANCE_MM:
+                        continue
+                    for c,d in zip(points,points[1:]):
+                        interval=capsule_interval(a,b,c,d,radius)
+                        if interval:
+                            covered.append(interval)
+                            remaining=uncovered_intervals(remaining,[interval])
+                            if not remaining: break
+                    if not remaining: break
+                direction=(b-a)/np.linalg.norm(b[:2]-a[:2])
+                exposed={issue_id:uncovered_intervals(intervals,covered) for issue_id,intervals in regions.items()}
+                boundaries=sorted({edge for intervals in exposed.values() for interval in intervals for edge in interval})
+                for lo,hi in zip(boundaries,boundaries[1:]):
+                    if hi-lo<1e-8: continue
+                    middle=(lo+hi)/2
+                    for issue_id,intervals in exposed.items():
+                        if not any(start<=middle<=end for start,end in intervals): continue
+                        self.record(issue_id,"travel_over_finished_top",a+lo*direction,a+hi*direction,line,"Travel",
+                                    "no_z_hop_and_no_later_deposition_over_this_xy_interval")
+        margins={}
+        for (index,_),edges in self.gap_edges.items():
+            issue_id,region=self.gaps[index]
+            both=edges["left"] is not None and edges["right"] is not None
+            remaining=edges["gap_mm"]-(edges["left"] or 0.)-(edges["right"] or 0.)
+            if edges["interior_obstruction"]:
+                remaining=min(remaining,0.)
+            entry=margins.setdefault(issue_id,{"both_sides_samples":0,"one_side_samples":0,"remaining_margin_mm":None,
+                                               "review_threshold_mm":MARGIN_REVIEW_MM,"status":"unknown_missing_boundary_paths",
+                                               "evidence":"nominal bead envelope; not proof of fusion"})
+            entry["both_sides_samples" if both else "one_side_samples"]+=1
+            if (both or edges["interior_obstruction"]) and (entry["remaining_margin_mm"] is None or remaining<entry["remaining_margin_mm"]):
+                entry.update(remaining_margin_mm=remaining,z_mm=edges["z_mm"],line_width_mm=edges["width_mm"],
+                             probe_a_mm=region["a_mm"],probe_b_mm=region["b_mm"],
+                             status="bead_overlap_candidate" if remaining<0 else "bead_obstruction_candidate" if edges["interior_obstruction"] else "low_margin" if remaining<MARGIN_REVIEW_MM-1e-6 else "estimated_margin")
+        unique={}
+        for (_,kind),(length,ids) in self.shared_paths.items():
+            total=unique.setdefault(kind,{"unique_paths":0,"total_length_mm":0.,"shared_paths":0})
+            total["unique_paths"]+=1
+            total["total_length_mm"]+=length
+            total["shared_paths"]+=int(len(ids)>1)
+        for (issue_id,kind),event in self.events.items():
+            paths=self.event_paths[(issue_id,kind)]
+            shared=[self.shared_paths[(path,kind)][1] for path in paths if len(self.shared_paths[(path,kind)][1])>1]
+            event["shared_path_count"]=len(shared)
+            event["shared_with_geometry_issue_ids"]=sorted(set().union(*shared)-{issue_id}) if shared else []
+            event["totals_include_shared_paths"]=bool(shared)
         coverage=[]
         for issue_id,samples in self.top_samples.items():
             count=int(self.covered[issue_id].sum())
@@ -270,18 +484,23 @@ class ToolpathComparison:
             linked.append({"geometry_issue_id":issue["id"],"category":issue["category"],
                            "status":"matched_paths" if matched else "unknown" if self.reasons else "not_observed_in_sampled_paths",
                            "kinds":[event["kind"] for event in matched],"physical_status":"unverified"})
+            if issue["category"]=="clearances":
+                linked[-1]["clearance_margin"]=margins.get(issue["id"],{"status":"unknown_no_nearby_paths","remaining_margin_mm":None})
+                if not matched and linked[-1]["clearance_margin"].get("remaining_margin_mm") is not None:
+                    linked[-1]["status"]="unknown" if self.reasons else linked[-1]["clearance_margin"]["status"]
+                    linked[-1]["kinds"].append("bead_margin_estimate")
         return {"status":"unknown" if self.reasons else "observed", "observations":list(self.events.values())+coverage,
                 "feature_paths":{name:{"gcode_moves":len(value["lines"]),"linearized_segments":value["linearized_segments"],
                                        "commanded_length_mm":value["path_length_mm"],"longest_segment_mm":value["longest_segment_mm"],
                                        "segments":value["segments"],"segments_truncated":value["linearized_segments"]>len(value["segments"])} for name,value in self.feature_lengths.items()},
-                "issue_results":linked,"cosmetic_requirements":"declared" if any(i["category"]=="cosmetic_faces" for i in self.issues) else "unknown: no cosmetic regions declared",
+                "issue_results":linked,"unique_path_totals":unique,"cosmetic_requirements":"declared" if any(i["category"]=="cosmetic_faces" for i in self.issues) else "unknown: no cosmetic regions declared",
                 "coordinate_frame":{"status":"aligned" if self.offset is not None else "unknown","applied_extruder_offset_mm":self.offset.tolist() if self.offset is not None else None},
                 "unmapped_arc_examples":self.unknown_arcs,
                 "unknown_reasons":sorted(self.reasons),"limitations":[
                     "Clearance observations prove commanded material paths enter sampled nominal voids, not that a physical joint fused.",
-                    "Paths are nominal centerlines. Bead spread, sag and actual nozzle widths are not simulated.",
+                    "Bead edges use emitted LINE_WIDTH or saved feature/first-layer width and layer height. Actual spread and roof sag remain unverified; positive margin does not clear a geometric risk.",
                     "Arc subdivision uses project line width; endpoint/radius comparisons allow the pinned writer's 0.003 mm rounding budget.",
                     "Outer-wall starts after travel are seam candidates, not exact firmware seam detection.",
-                    "Travel intersections are XY projections over already emitted top paths, not proof of nozzle contact or scratches.",
+                    "Travel is clipped to exposed top bead footprints at the current print Z without Z-hop, excluding all later higher-layer bead footprints. This is not proof of nozzle contact or scratches.",
                     "Ironing coverage applies only to sampled intended top points and known spacing, not every point of a continuous face.",
                 ]}

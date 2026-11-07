@@ -100,7 +100,7 @@ def test_geometry(service, opened):
     assert mesh["watertight"]
     assert mesh["volume_mm3"] == pytest.approx(1000 / 6)
     assert mesh["connected_components"] == 1
-    assert mesh["sampled_thickness"]
+    assert mesh["sampled_thickness_count"]>0
     assert mesh["mechanical_strength"].startswith("unknown")
 
 

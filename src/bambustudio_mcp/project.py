@@ -150,7 +150,7 @@ class Project:
                 "meshes": [{"resource_id": m["resource_id"], "instance": m["instance"], "role": m["role"], "triangles": len(m["faces"]),
                             "bounds_mm": [m["vertices"].min(axis=0).tolist(), m["vertices"].max(axis=0).tolist()]}
                            for m in self.meshes()],
-                "configuration_keys": sorted(self.settings), "archive_entries": len(self.entries)}
+                "configuration_key_count": len(self.settings), "archive_entries": len(self.entries)}
 
     def target(self, scope, target):
         if scope == "plate":

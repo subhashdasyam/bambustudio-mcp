@@ -275,3 +275,89 @@ def test_conditional_motion_does_not_confirm_gap_intrusion(tmp_path):
     result=inspect_sliced_project(sliced(tmp_path,gcode),geometry_issues(clearance_issue()))['plates'][0]['geometry_comparison']
     assert not result['observations']
     assert result['status']=='unknown'
+
+
+def test_bead_edges_use_emitted_and_first_layer_width_without_centerline_intrusion(tmp_path):
+    issue=clearance_issue((1,0,.1),(1.2,0,.1))
+    code='G90\nM83\nG0 X.9 Y-1 Z.2\n'+OBJECT+'; LINE_WIDTH: 0.42\nG1 Y1 E1\nG0 X1.3 Y-1\nG1 Y1 E1\n'
+    def check(settings):
+        c=inspect_sliced_project(sliced(tmp_path,code,settings),geometry_issues(issue))['plates'][0]['geometry_comparison']
+        assert not any(o['kind']=='extrusion_in_clearance' for o in c['observations'])
+        return c['issue_results'][0]['clearance_margin']
+    margin=check({})
+    assert margin['remaining_margin_mm']==pytest.approx(-.02)
+    assert margin['status']=='bead_overlap_candidate' and margin['line_width_mm']==.42
+    assert check({'initial_layer_line_width':'.2','initial_layer_print_height':'.2'})['remaining_margin_mm']==pytest.approx(-.02)
+    code=code.replace('; LINE_WIDTH: 0.42\n','')
+    margin=check({'initial_layer_line_width':'.2','initial_layer_print_height':'.2'})
+    assert margin['remaining_margin_mm']==pytest.approx(.2)
+    assert margin['status']=='estimated_margin'
+    margin=check({'initial_layer_line_width':'.5','initial_layer_print_height':'.2'})
+    assert margin['remaining_margin_mm']==pytest.approx(-.1)
+
+
+def test_bridge_matches_ceiling_to_emitted_layer_and_bead_width(tmp_path):
+    issue={'id':'roof','category':'bridges','location':{'bbox_mm':[[1,0,.3],[2,1,.3]]},
+           'ceiling_regions':[{'bbox_mm':[[1,0,.3],[2,1,.3]]}]}
+    code='G90\nM83\nG0 X0 Y-.1 Z.4\n; FEATURE: Bridge\n; LAYER_HEIGHT: 0.2\nG1 X3 E1\n'
+    c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    assert c['issue_results'][0]['status']=='matched_paths'
+    assert c['observations'][0]['kind']=='bridge_path'
+
+
+def test_vertical_gap_checks_bead_height_below_nozzle_tip(tmp_path):
+    issue=clearance_issue((1,0,.1),(1,0,.3))
+    issue['clearance_regions'][0]['z_range_mm']=[.1,.3]
+    code='G90\nM83\nG0 X0 Y0 Z.1\n; FEATURE: Outer wall\n; Z_HEIGHT: 0.1\n; LAYER_HEIGHT: 0.1\nG1 X2 E1\nG0 X0 Z.4\n; Z_HEIGHT: 0.4\n; LAYER_HEIGHT: 0.25\nG1 X2 E1\n'
+    c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    margin=c['issue_results'][0]['clearance_margin']
+    assert margin['remaining_margin_mm']==pytest.approx(.05)
+    assert margin['status']=='low_margin' and margin['z_mm']==.4
+    assert not any(o['kind']=='extrusion_in_clearance' for o in c['observations'])
+
+
+def test_isolated_bead_footprint_can_obstruct_gap_without_centerline_crossing(tmp_path):
+    issue=clearance_issue((0,0,.1),(.8,0,.1))
+    code='G90\nM83\nG0 X.4 Y.1 Z.2\n'+OBJECT+'G1 Y.3 E1\n'
+    c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    margin=c['issue_results'][0]['clearance_margin']
+    assert margin['status']=='bead_obstruction_candidate' and margin['remaining_margin_mm']==0
+    assert not any(o['kind']=='extrusion_in_clearance' for o in c['observations'])
+
+
+def test_travel_only_counts_exposed_tops_without_hop_and_excludes_faceting(tmp_path):
+    top={'id':'top','category':'top_surfaces','location':{'bbox_mm':[[0,-.2,.2],[4,.2,.2]]}}
+    facet={**top,'id':'facet','category':'faceting'}
+    start='G90\nM83\nG0 X0 Y0 Z.2\n'+OBJECT+'; FEATURE: Top surface\nG1 X4 E1\n'
+    crossing='G0 X2 Y-1\nG0 Y1\n'
+    def travels(code):
+        c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(top,facet))['plates'][0]['geometry_comparison']
+        return [o for o in c['observations'] if o['kind']=='travel_over_finished_top']
+    found=travels(start+crossing)
+    assert found and all(o['geometry_issue_id']=='top' for o in found)
+    assert sum(o['total_length_mm'] for o in found)<1
+    assert not travels(start+'G0 Z.6\n'+crossing+'G0 Z.2\n')
+    covering='G0 Z.4\n; Z_HEIGHT: 0.4\n; FEATURE: Inner wall\nG0 X0 Y0\nG1 X4 E1\n'
+    assert not travels(start+crossing+covering)
+
+
+def test_shared_issue_observations_have_unique_totals(tmp_path):
+    a={'id':'bed','category':'bed_contact','location':{'bbox_mm':[[0,0,0],[3,1,1]]}}
+    b={**a,'id':'overhang','category':'overhangs'}
+    code='G90\nM83\nG0 X0 Y0 Z.2\n; FEATURE: Overhang wall\nG1 X3 E1\n'
+    c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(a,b))['plates'][0]['geometry_comparison']
+    assert len(c['observations'])==2
+    assert all(o['shared_path_count']==1 and o['totals_include_shared_paths'] for o in c['observations'])
+    assert c['observations'][0]['examples'][0]['path_id']==c['observations'][1]['examples'][0]['path_id']
+    assert c['unique_path_totals']['overhang_perimeter']=={'unique_paths':1,'total_length_mm':3.,'shared_paths':1}
+
+
+def test_cosmetic_subset_clips_travel_without_double_counting_top_overlap(tmp_path):
+    top={'id':'top','category':'top_surfaces','location':{'bbox_mm':[[0,-.2,.18],[4,.2,.18]]}}
+    cosmetic={'id':'cosmetic','category':'cosmetic_faces','location':{'bbox_mm':[[0,-.1,.18],[4,.1,.18]]},'intent':{'avoid_seams':False}}
+    code='G90\nM83\nG0 X0 Y0 Z.2\n'+OBJECT+'; FEATURE: Top surface\nG1 X4 E1\nG0 X2 Y-1\nG0 Y1\n'
+    c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(top,cosmetic))['plates'][0]['geometry_comparison']
+    events=[o for o in c['observations'] if o['kind']=='travel_over_finished_top']
+    assert {o['geometry_issue_id'] for o in events}=={'top','cosmetic'}
+    assert all(o['shared_path_count']>0 for o in events)
+    assert sum(o['total_length_mm'] for o in events)>c['unique_path_totals']['travel_over_finished_top']['total_length_mm']

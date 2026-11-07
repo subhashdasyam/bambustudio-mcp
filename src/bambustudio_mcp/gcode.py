@@ -18,6 +18,8 @@ SETTING_KEYS = {
     "sparse_infill_pattern", "nozzle_diameter", "filament_type",
     "ironing_type", "ironing_spacing", "line_width",
     "extruder_offset",
+    "initial_layer_line_width", "outer_wall_line_width", "inner_wall_line_width",
+    "top_surface_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "support_line_width",
 }
 # shortcut: recognize Bambu feature labels only; expand when other slicers are supported.
 OBJECT_FEATURES = {
@@ -81,6 +83,9 @@ def _inspect(stream, settings, geometry_report=None):
                 layer_z = _number(comment[10:])
             elif comment.startswith("LAYER_HEIGHT: "):
                 layer_height = _number(comment[14:])
+            elif comment.startswith("LINE_WIDTH: "):
+                value=_number(comment.partition(":")[2])
+                comparison.emitted_width=value if value and value>0 else None
             elif " = " in comment:
                 key, value = comment.split(" = ", 1)
                 if key in SETTING_KEYS:

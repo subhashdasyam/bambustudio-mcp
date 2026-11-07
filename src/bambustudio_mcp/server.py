@@ -4,9 +4,10 @@ import asyncio
 import json
 from importlib.resources import files
 from importlib.metadata import version
+from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import ToolAnnotations
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
 
 from .service import Service
 
@@ -24,6 +25,10 @@ FILAMENT_INSTRUCTIONS = (
 )
 
 INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Run analyze_geometry for the exact revision before slicing, show its highlighted SVG previews, and explain unresolved issue IDs. Ask about moving parts, hinges, fitting holes, cosmetic faces and load direction. Suggest a small cut-out joint coupon before a long moving-part print. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
+
+
+def compact_result(report):
+    return CallToolResult(content=[TextContent(type="text",text=json.dumps(report,separators=(",",":")))],structuredContent=report)
 
 
 def create_server(service=None):
@@ -46,9 +51,9 @@ def create_server(service=None):
 
     @mcp.tool(annotations=write)
     async def open_project(path: str, machine_profile: str | None = None, process_profile: str | None = None,
-                           filament_profiles: list[str] | None = None) -> dict:
+                           filament_profiles: list[str] | None = None) -> Annotated[CallToolResult, dict]:
         """Copy a saved 3MF into an isolated workspace, or import a model with explicit profiles through Studio."""
-        return await asyncio.to_thread(service.open_project, path, machine_profile, process_profile, filament_profiles)
+        return compact_result(await asyncio.to_thread(service.open_project, path, machine_profile, process_profile, filament_profiles))
 
     @mcp.tool(annotations=read)
     def inspect_project(project_id: str, revision: str | None = None) -> dict:
@@ -88,13 +93,13 @@ def create_server(service=None):
         return service.get_print_guidance(project_id, revision)
 
     @mcp.tool(annotations=read)
-    async def inspect_slice(project_id: str, revision: str | None = None, job_id: str | None = None) -> dict:
+    async def inspect_slice(project_id: str, revision: str | None = None, job_id: str | None = None) -> Annotated[CallToolResult, dict]:
         """Inspect embedded G-code targets, object layers and feature feeds without running it.
 
         With job_id inspect that exact succeeded revision; otherwise inspect the saved project, including older sliced imports.
-        Geometry comparisons link paths to issue IDs from the exact revision. Unknown firmware, plate origins and extruder mappings remain unknown. Targets do not establish actual temperatures or physical fusion.
+        Compact results retain counts, shared path totals and bead-edge margins; raw paths stay at report_path. Geometry comparisons link paths to issue IDs from the exact revision. Unknown firmware, plate origins and extruder mappings remain unknown. Targets do not establish actual temperatures or physical fusion.
         """
-        return await asyncio.to_thread(service.inspect_slice, project_id, revision, job_id)
+        return compact_result(await asyncio.to_thread(service.inspect_slice, project_id, revision, job_id))
 
     @mcp.tool(annotations=write)
     async def apply_settings(project_id: str, revision: str, changes: dict, scope: str = "project", target: dict | None = None) -> dict:
@@ -114,13 +119,13 @@ def create_server(service=None):
         return await asyncio.to_thread(service.restore_revision, project_id, revision, restore)
 
     @mcp.tool(annotations=read)
-    async def analyze_geometry(project_id: str, revision: str | None = None, overhang_angle: float = 45.0) -> dict:
+    async def analyze_geometry(project_id: str, revision: str | None = None, overhang_angle: float = 45.0) -> Annotated[CallToolResult, dict]:
         """Find geometric print-risk candidates using nominal layer sections, facing clearances, roofs, bed contact and mesh facets; save highlighted SVG previews.
 
         Coordinates are world millimetres. Thickness is sampled geometry, not mechanical strength.
-        Overhang angle is the downward-face threshold from horizontal in degrees (0..90). Results are heuristics. Read coverage limits and show the highlighted previews before slicing. Detailed clearance probes stay in report_path for slice correlation; the response includes their counts.
+        Overhang angle is the downward-face threshold from horizontal in degrees (0..90). Results are heuristics. Read issue_guidance and slicer_fixes tables. Append #<issue id> to a highlighted preview path. Raw arrays stay at report_path for slice correlation; the response includes counts.
         """
-        return await asyncio.to_thread(service.analyze_geometry, project_id, revision, overhang_angle)
+        return compact_result(await asyncio.to_thread(service.analyze_geometry, project_id, revision, overhang_angle))
 
     @mcp.tool(annotations=write)
     async def edit_regions(project_id: str, revision: str, edits: list[dict]) -> dict:
@@ -137,9 +142,9 @@ def create_server(service=None):
         return await asyncio.to_thread(service.start_slice, project_id, revision, plate_index, timeout_seconds)
 
     @mcp.tool(annotations=read)
-    def get_job(job_id: str) -> dict:
+    def get_job(job_id: str) -> Annotated[CallToolResult, dict]:
         """Read persistent slice or comparison status, log tail, estimates, and output locations."""
-        return service.get_job(job_id)
+        return compact_result(service.get_job(job_id))
 
     @mcp.tool(annotations=write)
     def cancel_job(job_id: str) -> dict:

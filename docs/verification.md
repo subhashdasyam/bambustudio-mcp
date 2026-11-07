@@ -83,6 +83,19 @@ Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, pl
 These cases check advice paths. They do not establish physical behavior on those printers.
 The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
 
+## Version 0.4.2 checks
+
+The 0.4.2 release checks on 2026-11-07 reported 131 automated passes and one skipped live test.
+The separate real Studio slicing test passed. The real stand's geometry and slice tools each returned
+less than 60,000 bytes for the complete MCP result, including compact text and structured content.
+The test preserves every issue ID, checks saved raw evidence, and calls another tool on the same connection.
+
+Bead-envelope controls cover emitted and first-layer widths, vertical layer thickness, positive and negative margins,
+and an interior obstruction with no centerline crossing. Travel controls exclude Z-hop, later-covered tops and faceting links.
+Bridge controls cover the emitted layer above a CAD ceiling. Shared observations have deduplicated path totals.
+On the stand, both hinge-roof bridge groups match Bridge moves. The remaining flat-ceiling group overlaps wall-labelled moves;
+it is not relabelled as a confirmed bridge. Positive nominal margins do not establish physical clearance or explain roof sag.
+
 ## Version 0.4.1 checks
 
 The 0.4.1 release checks on 2026-11-07 reported 121 automated passes and one skipped live test.
