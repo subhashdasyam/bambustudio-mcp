@@ -144,7 +144,42 @@ class Service:
                       physical_observations=context.get("observations", []) if record.get("revision") == revision else [])
         if context.get("observations") and record.get("revision") != revision:
             report["warnings"].append({"code": "observations_from_other_revision", "revision": record["revision"]})
+        geometry, unresolved = self._geometry_status(directory,revision)
+        report["unresolved_geometry_issues"] = unresolved
+        report["geometry_analysis_status"] = geometry.get("analysis_status") if geometry else "not_run_or_stale"
+        if geometry:
+            from .preparation import quality_guide
+            from .preflight import GUIDE_CATEGORIES
+            inferred={GUIDE_CATEGORIES.get(i["category"],i["category"]) for i in geometry["issues"]}
+            selected={c["id"] for c in report["selected_guides"]}
+            report["selected_guides"].extend(c for c in quality_guide()["categories"] if c["id"] in inferred-selected)
+            report["inferred_concerns"]=sorted(inferred)
+            if "print_in_place" in inferred:
+                report["test_piece_recommendation"]="Use CAD or a manual Studio cut to isolate the risky joint with its mating surfaces. Preserve clearance, orientation and the original process. The MCP does not generate a cut-out automatically."
         return report
+
+    @staticmethod
+    def _geometry_context(directory,revision):
+        path=directory/"print-context.json"
+        record=json.loads(path.read_text()) if path.exists() else {}
+        context=copy.deepcopy(record.get("context",{}))
+        if record.get("revision")!=revision:
+            context.pop("cosmetic_faces",None)
+        return context
+
+    def _geometry_status(self,directory,revision):
+        from .preflight import context_signature
+        path=directory/f"{revision}-geometry-report.json"
+        report=json.loads(path.read_text()) if path.exists() else None
+        if not report or report.get("analysis_version")!=1 or report.get("context_signature")!=context_signature(self._geometry_context(directory,revision)):
+            return None,[{"id":"geometry_analysis_missing","category":"analysis","severity":"high",
+                          "message":"Run analyze_geometry for this exact revision and current face requirements, and show the highlighted SVG before slicing or export."}]
+        unresolved=[{key:issue[key] for key in ("id","category","severity","location","measurement")}
+                    for issue in report["issues"] if issue["severity"]=="high" and issue["status"]=="open"]
+        if report.get("analysis_status")!="complete":
+            unresolved.append({"id":"geometry_analysis_incomplete","category":"analysis","severity":"high",
+                               "message":"Geometry analysis has unknown or partial coverage. Review its limitations."})
+        return report,unresolved
 
     def inspect_slice(self, project_id, revision=None, job_id=None):
         from .gcode import inspect_sliced_project
@@ -156,7 +191,8 @@ class Service:
             if job["project_id"] != project_id or job["revision"] != revision or job["status"] != "succeeded":
                 raise ValueError("Slice job must have succeeded for this exact project revision")
             path = self.workspace / "jobs" / job_id / "sliced.3mf"
-        return dict(inspect_sliced_project(path), project_id=project_id, revision=revision)
+        geometry,_=self._geometry_status(directory,revision)
+        return dict(inspect_sliced_project(path,geometry), project_id=project_id, revision=revision)
 
     def restore_revision(self, project_id, revision, restore):
         self.runtime.require()
@@ -180,13 +216,15 @@ class Service:
 
     def analyze_geometry(self, project_id, revision=None, overhang_angle=45.0):
         directory, _, revision, project = self._load(project_id, revision)
-        report = analyze(project, overhang_angle)
+        report = analyze(project, overhang_angle, context=self._geometry_context(directory,revision))
         previews = report.pop("previews")
         for i, preview in enumerate(previews):
             path = directory / f"{revision}-view-{i}.svg"
             path.write_text(preview.pop("svg"))
             preview["path"] = str(path)
         report.update(revision=revision, previews=previews)
+        for issue in report["issues"]:
+            issue["highlight_svg"]=[f'{p["path"]}#{issue["id"]}' for p in previews if p.get("projection")]
         atomic_json(directory / f"{revision}-geometry-report.json", report)
         return report
 
@@ -242,6 +280,12 @@ class Service:
                                            "revision": revision, "plate_index": plate_index, "timeout_seconds": timeout_seconds,
                                            "environment": environment})
         atomic_json(job / "state.json", {"job_id": job_id, "project_id": project_id, "revision": revision, "status": "queued"})
+        geometry,unresolved=self._geometry_status(directory,revision)
+        if geometry:
+            atomic_json(job/"geometry.json",geometry)
+        state=json.loads((job/"state.json").read_text())
+        state["unresolved_geometry_issues"]=unresolved
+        atomic_json(job/"state.json",state)
         with (job / "worker.log").open("w") as log:
             process = subprocess.Popen([sys.executable, "-m", "bambustudio_mcp.worker", str(job)],
                                        stdout=log, stderr=subprocess.STDOUT, start_new_session=True, close_fds=True)
@@ -386,7 +430,8 @@ class Service:
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("xb") as output, source.open("rb") as input_stream:
             shutil.copyfileobj(input_stream, output)
-        return {"path": str(destination), "revision": revision, "sliced": bool(job_id)}
+        _,unresolved=self._geometry_status(directory,revision)
+        return {"path": str(destination), "revision": revision, "sliced": bool(job_id), "unresolved_geometry_issues":unresolved}
 
     def open_in_studio(self, project_id, revision=None):
         self.runtime.require()

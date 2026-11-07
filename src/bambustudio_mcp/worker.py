@@ -60,7 +60,8 @@ def run(directory: Path):
             state["normalization_evidence"] = "Studio export; local settings remain in the exported project"
             from .gcode import inspect_sliced_project
             try:
-                inspection = inspect_sliced_project(directory / "sliced.3mf")
+                geometry=json.loads((directory/"geometry.json").read_text()) if (directory/"geometry.json").exists() else None
+                inspection = inspect_sliced_project(directory / "sliced.3mf",geometry)
             except (ValueError, OSError, zipfile.BadZipFile) as error:
                 inspection = {"status": "unknown", "issues": [{"code": "inspection_failed", "message": str(error)}]}
             atomic_json(directory / "inspection.json", inspection)

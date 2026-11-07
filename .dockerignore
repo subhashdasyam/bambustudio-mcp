@@ -1,6 +1,7 @@
 .git
 .venv
 runtime
+exa-results
 dist
 **/__pycache__
 .pytest_cache

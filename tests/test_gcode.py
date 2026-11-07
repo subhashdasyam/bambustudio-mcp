@@ -9,10 +9,10 @@ from bambustudio_mcp.gcode import inspect_sliced_project
 
 def sliced(tmp_path, gcode, settings=None, second_plate=None):
     path = tmp_path / "sliced.gcode.3mf"
+    settings=dict(settings or {"nozzle_temperature_initial_layer":["245"],"nozzle_temperature":["250"]})
+    settings.setdefault("extruder_offset",["0x0"])
     with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("Metadata/project_settings.config", json.dumps(settings or {
-            "nozzle_temperature_initial_layer": ["245"], "nozzle_temperature": ["250"],
-        }))
+        archive.writestr("Metadata/project_settings.config", json.dumps(settings))
         archive.writestr("Metadata/plate_1.gcode", gcode)
         if second_plate:
             archive.writestr("Metadata/plate_2.gcode", second_plate)
@@ -146,3 +146,107 @@ def test_missing_gcode_is_unknown(tmp_path):
     with zipfile.ZipFile(path, "w"):
         pass
     assert inspect_sliced_project(path)["issues"][0]["code"] == "missing_gcode"
+
+
+def geometry_issues(*issues):
+    return {"parameters":{"line_width_mm":.4},"issues":list(issues)}
+
+
+def clearance_issue(a=(1,0,.1),b=(1.2,0,.1)):
+    return {"id":"geo-gap","category":"clearances","location":{"bbox_mm":[[.5,-.2,0],[2,.2,.2]]},
+            "clearance_regions":[{"a_mm":list(a),"b_mm":list(b),"z_range_mm":[0,.2]}]}
+
+
+def test_paths_in_nominal_gap_link_to_geometry_id_and_negative_control(tmp_path):
+    start="G90\nM83\nG0 X0 Y0 Z.2\n"
+    path=sliced(tmp_path,start+OBJECT+"G1 X2 E1 F1200\n")
+    result=inspect_sliced_project(path,geometry_issues(clearance_issue()))['plates'][0]['geometry_comparison']
+    intrusion=[i for i in result['observations'] if i['kind']=='extrusion_in_clearance']
+    assert intrusion[0]['geometry_issue_id']=='geo-gap'
+    assert intrusion[0]['examples'][0]['z_mm']==.2
+    path=sliced(tmp_path,start+OBJECT+"G1 X.9 E1 F1200\n")
+    assert not inspect_sliced_project(path,geometry_issues(clearance_issue()))['plates'][0]['geometry_comparison']['observations']
+
+
+def test_arc_correlation_follows_arc_instead_of_chord(tmp_path):
+    path=sliced(tmp_path,"G90\nM83\nG0 X0 Y0 Z.2\n"+OBJECT+"G3 X2 Y0 I1 J0 E1 F1200\n")
+    report=inspect_sliced_project(path,geometry_issues(clearance_issue((.9,-1,.1),(1.1,-1,.1))))
+    assert any(o['kind']=='extrusion_in_clearance' for o in report['plates'][0]['geometry_comparison']['observations'])
+    path=sliced(tmp_path,"G90\nM83\nG0 X0 Y0 Z.2\n"+OBJECT+"G3 X2 Y0 R1 E1\n")
+    report=inspect_sliced_project(path,geometry_issues(clearance_issue((.9,-1,.1),(1.1,-1,.1))))
+    assert any(o['kind']=='extrusion_in_clearance' for o in report['plates'][0]['geometry_comparison']['observations'])
+    path=sliced(tmp_path,"G90\nM83\nG0 X0 Y0 Z.2\n"+OBJECT+"G3 X2 Y0 R.2 E1\n")
+    report=inspect_sliced_project(path,geometry_issues(clearance_issue()))
+    assert report['plates'][0]['geometry_comparison']['status']=='unknown'
+    assert not report['plates'][0]['geometry_comparison']['observations']
+
+
+def test_extruder_offset_alignment_and_unknown_differing_offsets(tmp_path):
+    code="G90\nM83\nG0 X0 Y-2 Z.2\n"+OBJECT+"G1 X2 E1\n"
+    report=geometry_issues(clearance_issue())
+    path=sliced(tmp_path,code,{'extruder_offset':['0x2']})
+    comparison=inspect_sliced_project(path,report)['plates'][0]['geometry_comparison']
+    assert comparison['coordinate_frame']['applied_extruder_offset_mm']==[0,2,0]
+    assert any(o['kind']=='extrusion_in_clearance' for o in comparison['observations'])
+    path=sliced(tmp_path,code,{'extruder_offset':['0x2','1x0']})
+    comparison=inspect_sliced_project(path,report)['plates'][0]['geometry_comparison']
+    assert comparison['status']=='unknown' and not comparison['observations']
+
+
+def test_pinned_writer_arc_rounding_budget():
+    from bambustudio_mcp.toolpaths import arc_points
+    import numpy as np
+    a=np.array([121.141,185.756,.32]);b=np.array([120.326,186.726,.32])
+    assert arc_points(a,b,{'I':-1.015,'J':-.024},False,.042) is not None
+    assert arc_points(a,b+np.array([.1,0,0]),{'I':-1.015,'J':-.024},False,.042) is None
+
+
+def test_bridge_and_overhang_lengths_link_to_geometry(tmp_path):
+    issue={'id':'geo-roof','category':'bridges','location':{'bbox_mm':[[0,0,.1],[4,1,.3]]}}
+    gcode="G90\nM83\nG0 X0 Y0 Z.2\n; Z_HEIGHT: 0.2\n; FEATURE: Bridge\nG1 X2 E1 F900\n; FEATURE: Overhang wall\nG1 X4 E1\n"
+    result=inspect_sliced_project(sliced(tmp_path,gcode),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    assert {i['kind'] for i in result['observations']}=={'bridge_path','overhang_perimeter'}
+    assert all(i['total_length_mm']==2 and i['geometry_issue_id']=='geo-roof' for i in result['observations'])
+    assert result['feature_paths']['Bridge']['gcode_moves']==1
+    assert result['feature_paths']['Bridge']['segments'][0]['direction']==[1,0,0]
+    assert result['feature_paths']['Bridge']['segments'][0]['geometry_issue_ids']==['geo-roof']
+
+
+def test_stationary_unretraction_and_feed_change_are_not_bridge_or_seam_paths(tmp_path):
+    issue={'id':'geo-roof','category':'bridges','location':{'bbox_mm':[[0,0,0],[4,1,1]]}}
+    code='G90\nM83\nG0 X0 Y0 Z.2\n; FEATURE: Bridge\nG1 E.8\nG1 F1000\n'
+    result=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    assert not result['observations'] and not result['feature_paths']
+
+
+def test_cosmetic_seams_travel_and_sampled_ironing_coverage(tmp_path):
+    issue={'id':'geo-face','category':'cosmetic_faces','location':{'bbox_mm':[[0,0,.2],[2,2,.2]]},
+           'intent':{'avoid_seams':True,'ironing':True},'top_samples_mm':[[.5,.5,.2],[1.5,.5,.2]]}
+    gcode="G90\nM83\nG0 X.2 Y.2 Z.2\n"+OBJECT+"""G1 X1.8 E1
+; FEATURE: Top surface
+G1 Y1 E1
+G0 X2 Y.6
+G0 X0 Y.6
+G0 X0 Y.5
+; FEATURE: Ironing
+G1 X2 E.1
+"""
+    settings={'ironing_spacing':'.2'}
+    result=inspect_sliced_project(sliced(tmp_path,gcode,settings),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    kinds={i['kind'] for i in result['observations']}
+    assert {'seam_start_candidate','travel_over_finished_top','ironing_in_intended_region','ironing_coverage'}<=kinds
+    coverage=next(i for i in result['observations'] if i['kind']=='ironing_coverage')
+    assert coverage['covered_fraction']==1 and coverage['status']=='sampled_coverage'
+    rounded=dict(issue,location={'bbox_mm':[[0,0,.18],[2,2,.18]]},top_samples_mm=[[.5,.5,.18],[1.5,.5,.18]])
+    result=inspect_sliced_project(sliced(tmp_path,gcode,settings),geometry_issues(rounded))['plates'][0]['geometry_comparison']
+    assert next(i for i in result['observations'] if i['kind']=='ironing_coverage')['covered_fraction']==1
+    no_ironing=gcode.split('; FEATURE: Ironing')[0]
+    result=inspect_sliced_project(sliced(tmp_path,no_ironing,settings),geometry_issues(issue))['plates'][0]['geometry_comparison']
+    assert next(i for i in result['observations'] if i['kind']=='ironing_coverage')['covered_fraction']==0
+
+
+def test_conditional_motion_does_not_confirm_gap_intrusion(tmp_path):
+    gcode="G90\nM83\nG0 X0 Y0 Z.2\n"+OBJECT+"M622 J1\nG1 X2 E1\nM623\n"
+    result=inspect_sliced_project(sliced(tmp_path,gcode),geometry_issues(clearance_issue()))['plates'][0]['geometry_comparison']
+    assert not result['observations']
+    assert result['status']=='unknown'

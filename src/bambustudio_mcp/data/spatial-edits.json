@@ -12,6 +12,10 @@
     "Paint states: enforce, block, clear. Replacing a selected face replaces its previous subface painting; unselected faces are preserved.",
     "A shared resource edit affects every instance of that resource.",
     "Rotation is relative, about the project origin, XYZ order, and places the selected instance on the bed.",
-    "Layer-height profile is a complete replacement with increasing Z values and heights inside nozzle limits."
+    "Layer-height profile is a complete replacement with increasing Z values and heights inside nozzle limits.",
+    "Analyze the exact revision before slicing. Issue bbox and Z ranges use world coordinates. Modifier bounds still require object coordinates.",
+    "After rotation or another geometry change, analyze the new revision and re-record cosmetic face bounds. Old highlights and measured observations do not validate it.",
+    "For a risky horizontal hole roof, consider support paint or a compatible height_range candidate. Supports inside a moving joint can make fusion worse.",
+    "The MCP has no CAD cut-out tool. Suggest a manual Studio cut or CAD coupon around the risky hinge, preserving both mating parts and their clearance."
   ]
 }

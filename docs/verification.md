@@ -83,6 +83,15 @@ Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, pl
 These cases check advice paths. They do not establish physical behavior on those printers.
 The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
 
+## Version 0.4.0 checks
+
+The 0.4.0 release checks on 2026-11-07 reported 114 automated passes and one skipped live test.
+The separate real Studio round-trip test passed. The supplied `tiiny_stand_wide.stl` regression also passed.
+The adjacent archived P1S/PLA project and a fresh CLI slice supplied stand-specific path evidence.
+These checks did not run a printer or establish physical fit, finish or strength.
+
+The local STL regression skips when its source file is unavailable. The repository does not bundle that external design.
+
 ## Glama metadata and build
 
 [glama.json](../glama.json) identifies `subhashdasyam` as the maintainer.
@@ -95,6 +104,7 @@ Check the public Schema page after Glama completes introspection.
 The expected interface has 19 tools, six resources, one resource template, and one prompt.
 The MCP initialization reports the installed `bambustudio-mcp` package version, not the SDK version.
 Version 0.3.0 adds conditional guidance for curves, detail, domes, flexible feed and support removal.
+Version 0.4.0 adds geometry preflight, highlighted issue locations and G-code comparisons.
 Glama refreshes from the repository. Its refresh timing is external to this server.
 
 For a local build, run:

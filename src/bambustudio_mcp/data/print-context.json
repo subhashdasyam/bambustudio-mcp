@@ -18,9 +18,19 @@
       "dimensional_fit",
       "joints",
       "fine_detail",
-      "flexible_feed"
+      "flexible_feed",
+      "print_in_place",
+      "holes_lying_flat",
+      "bed_contact",
+      "bridges"
     ],
-    "observations": "Optional array of {kind, status, notes, job_id?}. Kind: thread_fit, surface_finish or strength. Status: passed, failed or unverified. Notes must describe actual observations. job_id, if present, must match a succeeded slice for this project revision. Observations do not transfer to another revision."
+    "observations": "Optional array of {kind, status, notes, job_id?}. Kind: thread_fit, surface_finish or strength. Status: passed, failed or unverified. Notes must describe actual observations. job_id, if present, must match a succeeded slice for this project revision. Observations do not transfer to another revision.",
+    "moving_parts": "Describe intended relative movement, or record none.",
+    "hinges": "Describe hinge/pin axis and required movement, or record none.",
+    "fit_requirements": "Describe critical holes, pins, mating surfaces and measured clearance, or record none.",
+    "load_direction": "Describe load vector and mounting contacts, or record none for a nonstructural model.",
+    "cosmetic_faces": "Array of {name, bounds_mm: [minimum_xyz, maximum_xyz], avoid_seams?: boolean, ironing?: boolean}. Bounds use project world millimetres. Empty means no declared cosmetic regions. Re-record after geometry changes.",
+    "elephant_foot_expansion_mm": "Optional nonnegative measured per-side first-layer expansion. Compensation is not this measurement. Missing values use an explicitly labeled conservative budget."
   },
   "example": {
     "printer_model": "Bambu Lab P1S",
@@ -50,7 +60,12 @@
       "threads",
       "visible_walls"
     ],
-    "observations": []
+    "observations": [],
+    "moving_parts": "unknown",
+    "hinges": "unknown",
+    "fit_requirements": "unknown",
+    "load_direction": "unknown",
+    "cosmetic_faces": []
   },
   "limits": [
     "The example is an input shape, not a verified hardware or filament recipe.",

@@ -15,6 +15,15 @@
 
 3. Analyze geometry and review previews. Locate thin connections, overhangs, contact areas and likely
    stress concentrations. Label these as geometric observations or engineering hypotheses.
+   Run `analyze_geometry` on the exact revision before each slice. Show its highlighted SVG previews.
+   Explain each issue ID, severity, measured value, threshold, CAD fix and applicable slicer controls.
+   Review coverage limits. An empty heuristic report does not establish a safe or attractive print.
+
+   Ask about moving parts, hinges, holes that must fit, cosmetic faces and load direction.
+   Record these requirements with `record_print_context`. Declare cosmetic regions in world coordinates.
+   Use `print_in_place`, `holes_lying_flat`, `bed_contact` and `bridges` where applicable.
+   For a tight moving joint, suggest a small CAD or manual Studio cut-out before a long print.
+   Preserve both mating surfaces, the axis, clearance, orientation and local process in that coupon.
 
 4. Consider orientation and layer adhesion before adding material. Compare wall thickness, shells and
    local reinforcement with infill changes. Increasing infill is not a universal strength improvement.
@@ -32,6 +41,10 @@
    warnings and effective values. Keep alternatives when neither wins on every required objective.
    Treat time differences below the comparison's 1% threshold as inconclusive. For important small
    differences, repeat the baseline and candidates to measure variability before selecting a winner.
+   Read `unresolved_geometry_issues` from slice/export results. Warnings do not block the operation.
+   Use `inspect_slice` or job inspection to link actual paths to the geometry issue IDs.
+   Distinguish commanded extrusion in nominal gaps from physical fusion or sag.
+   Review bridge lengths/directions, cosmetic seam candidates, top-crossing travel and sampled ironing coverage.
 
 9. Export a new project and review it in Studio. Design a physical baseline/candidate comparison using
    repeated prints, duration measurements, dimensional checks, defined finish inspection and loads
@@ -108,6 +121,23 @@ Complete these steps before print recommendations or slices.
    Use calibration and a small physical sample to check thread fit and surface finish before a full print.
 
 The client supplies web search. The MCP server supplies local profiles and project tools.
+
+## Geometry and G-code evidence
+
+The analyzer checks nominal layer sections and facing-boundary scan lines without a polygon-engine dependency.
+Thresholds come from the saved nozzle, line width, layer height and initial-layer settings.
+Two line widths in XY and two layer heights in Z are conservative review thresholds.
+The narrowest gaps receive a higher risk rank. A 0.5 mm gap can retain an advisory without a high-risk failure.
+No source certifies a universal moving clearance. Use a calibrated coupon for the actual joint.
+
+Elephant-foot compensation is not measured expansion. Record measured per-side expansion when available.
+Otherwise, the report labels its initial-line-width proxy budget explicitly.
+STL facets cannot prove that a small angular step is an intentional stop or an exported smooth curve.
+
+G-code correlation adds the archived extruder offset to emitted XY coordinates when all possible offsets agree.
+Differing extruder offsets and unmodeled plate origins remain unknown.
+Outer-wall starts after travel are seam candidates. They do not establish an exact physical seam.
+Ironing coverage checks sampled intended top points with the archived spacing. It does not prove every point is smooth.
 
 ## Primary references
 

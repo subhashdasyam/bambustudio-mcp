@@ -23,7 +23,7 @@ FILAMENT_INSTRUCTIONS = (
     "Check saved filament settings against the confirmed spool before slicing."
 )
 
-INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
+INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Run analyze_geometry for the exact revision before slicing, show its highlighted SVG previews, and explain unresolved issue IDs. Ask about moving parts, hinges, fitting holes, cosmetic faces and load direction. Suggest a small cut-out joint coupon before a long moving-part print. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
 
 
 def create_server(service=None):
@@ -92,7 +92,7 @@ def create_server(service=None):
         """Inspect embedded G-code targets, object layers and feature feeds without running it.
 
         With job_id inspect that exact succeeded revision; otherwise inspect the saved project, including older sliced imports.
-        Unknown firmware branches and mappings remain unknown. Targets do not establish actual temperatures or speeds.
+        Geometry comparisons link paths to issue IDs from the exact revision. Unknown firmware, plate origins and extruder mappings remain unknown. Targets do not establish actual temperatures or physical fusion.
         """
         return await asyncio.to_thread(service.inspect_slice, project_id, revision, job_id)
 
@@ -115,10 +115,10 @@ def create_server(service=None):
 
     @mcp.tool(annotations=read)
     async def analyze_geometry(project_id: str, revision: str | None = None, overhang_angle: float = 45.0) -> dict:
-        """Measure geometry, sampled thickness, contact and downward-facing overhang regions; save SVG previews.
+        """Find geometric print-risk candidates using nominal layer sections, facing clearances, roofs, bed contact and mesh facets; save highlighted SVG previews.
 
         Coordinates are world millimetres. Thickness is sampled geometry, not mechanical strength.
-        Overhang angle is the downward-face threshold from horizontal in degrees (0..90).
+        Overhang angle is the downward-face threshold from horizontal in degrees (0..90). Results are heuristics. Read coverage limits and show the highlighted previews before slicing.
         """
         return await asyncio.to_thread(service.analyze_geometry, project_id, revision, overhang_angle)
 
@@ -133,7 +133,7 @@ def create_server(service=None):
 
     @mcp.tool(annotations=write)
     async def start_slice(project_id: str, revision: str | None = None, plate_index: int = 0, timeout_seconds: int = 1800) -> dict:
-        """Queue a detached Studio slice. Returns immediately; poll get_job. 0 selects all plates; positive indexes are 1-based."""
+        """Queue a detached Studio slice. Run analyze_geometry first and show its highlighted preview. Unresolved or missing geometry analysis returns warnings, not a block. Poll get_job. 0 selects all plates; positive indexes are 1-based."""
         return await asyncio.to_thread(service.start_slice, project_id, revision, plate_index, timeout_seconds)
 
     @mcp.tool(annotations=read)
@@ -201,7 +201,7 @@ def create_server(service=None):
 
     @mcp.prompt()
     def prepare_print(project_id: str, intended_use: str = "unspecified") -> str:
-        return f"Read bambustudio://guide and bambustudio://quality-guide. Inspect project {project_id}. Intended use: {intended_use}. {FILAMENT_INSTRUCTIONS} Call get_print_guidance and record confirmed inputs with record_print_context. Resolve missing inputs and mismatches for the actual printer, nozzles and filaments. Obtain missing load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Make reversible candidates, compare against baseline, inspect actual slice commands, and export the selected revision. Use matched physical samples and record fit/finish observations for their exact revision. Never claim measured strength or finish without physical evidence."
+        return f"Read bambustudio://guide and bambustudio://quality-guide. Inspect project {project_id}. Intended use: {intended_use}. {FILAMENT_INSTRUCTIONS} Call get_print_guidance and record confirmed inputs with record_print_context. Resolve missing inputs and mismatches for the actual printer, nozzles and filaments. Obtain missing load, attachment, surface, tolerance and time requirements. Explain geometry observations separately from mechanical hypotheses. Run analyze_geometry for the exact revision, show highlighted risks and preserve their issue IDs. Suggest a small hinge/clearance coupon before a long print. Make reversible candidates, compare against baseline, inspect actual slice commands, and export the selected revision. Use matched physical samples and record fit/finish observations for their exact revision. Never claim measured strength or finish without physical evidence."
 
     return mcp
 

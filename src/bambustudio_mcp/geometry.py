@@ -4,16 +4,15 @@ import numpy as np
 import trimesh
 
 
-def analyze(project, overhang_angle=45.0, sample_count=64):
+def analyze(project, overhang_angle=45.0, sample_count=64, context=None):
     if not 0 < overhang_angle < 90 or not 1 <= sample_count <= 256:
         raise ValueError("Overhang angle must be 0..90 degrees; samples must be 1..256")
     reports = []
     previews = []
     for resource in project.meshes():
         mesh = trimesh.Trimesh(vertices=resource["vertices"], faces=resource["faces"], process=False)
-        bottom = float(mesh.bounds[0, 2])
         centers = mesh.triangles_center
-        bed = np.abs(centers[:, 2] - bottom) < 0.02
+        bed = (np.abs(mesh.triangles[:, :, 2]) < max(float(mesh.extents.max())*1e-7,1e-6)).all(axis=1)
         overhang = (mesh.face_normals[:, 2] < -np.cos(np.radians(overhang_angle))) & ~bed
         indices = np.flatnonzero(overhang)
         thickness = []
@@ -63,7 +62,10 @@ def analyze(project, overhang_angle=45.0, sample_count=64):
             polygons.append(f'<polygon points="{" ".join(f"{x:.2f},{y:.2f}" for x, y in coords)}" fill="{color}" stroke="#30434b" stroke-width="0.3"><title>face {int(face)}</title></polygon>')
         previews.append({"resource_id": resource["resource_id"], "instance": resource["instance"],
                          "svg": '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="460" viewBox="0 0 600 460">' + "".join(polygons) + '</svg>'})
-    return {"coordinate_system": "project world coordinates in millimetres", "meshes": reports, "previews": previews,
-            "limitations": ["Overhang geometry does not predict bridge success or support removability.",
+    from .preflight import preflight, previews as highlighted_previews
+    risks = preflight(project, reports, context or {}, overhang_angle)
+    return {"coordinate_system": "project world coordinates in millimetres", "meshes": reports,
+            **risks, "previews": previews + highlighted_previews(project, risks["issues"]),
+            "limitations": risks["limitations"] + ["Overhang geometry does not predict bridge success or support removability.",
                             "Thickness samples can miss narrow features; they are not a stress analysis.",
                             "No strength or finish improvement is physically validated."]}

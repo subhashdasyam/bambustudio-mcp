@@ -16,6 +16,8 @@ SETTING_KEYS = {
     "outer_wall_acceleration", "inner_wall_acceleration", "small_perimeter_speed",
     "small_perimeter_threshold", "wall_loops", "sparse_infill_density",
     "sparse_infill_pattern", "nozzle_diameter", "filament_type",
+    "ironing_type", "ironing_spacing", "line_width",
+    "extruder_offset",
 }
 # shortcut: recognize Bambu feature labels only; expand when other slicers are supported.
 OBJECT_FEATURES = {
@@ -50,9 +52,13 @@ def _summary(values):
     }
 
 
-def _inspect(stream, settings):
+def _inspect(stream, settings, geometry_report=None):
+    from .toolpaths import ToolpathComparison
+    comparison = ToolpathComparison(geometry_report, settings)
     feature, layer_z, layer_height = None, None, None
     xyz = dict.fromkeys("XYZ", 0.0)
+    known_xyz = dict.fromkeys("XYZ", False)
+    supported_coordinates = True
     relative, relative_e, e = False, False, 0.0
     feed = acceleration = temperature = None
     tool, tools = 0, set()
@@ -115,6 +121,9 @@ def _inspect(stream, settings):
         elif command == "G92":
             e = words.get("E", e)
             xyz.update({axis: words[axis] for axis in xyz if axis in words})
+            if any(axis in words for axis in xyz):
+                supported_coordinates = False
+                comparison.unknown("G92 XYZ changes the coordinate frame; geometry correlation is unknown after it.")
         elif command in {"M104", "M109"}:
             target = words.get("S", words.get("R"))
             if target is not None:
@@ -125,9 +134,16 @@ def _inspect(stream, settings):
         elif command in {"G20", "G93", "G95"}:
             reasons.add("Unsupported units or feed mode")
             temperature_uncertain = True
+            supported_coordinates = False
+            comparison.unknown("Unsupported units/feed mode prevents geometry correlation.")
+        elif command in {"G54", "G55", "G56", "G57", "G58", "G59", "G90.1", "M206"}:
+            supported_coordinates = False
+            comparison.unknown("An unmodeled coordinate or arc-center mode prevents geometry correlation.")
         elif command == "M220" and words.get("S", 100) != 100:
             reasons.add("Firmware feed scaling is not applied to commanded feed summaries")
         elif command in {"G0", "G1", "G2", "G3"}:
+            previous_xyz = xyz.copy()
+            start_known = known_xyz["X"] and known_xyz["Y"]
             if "F" in words:
                 feed = words["F"] / 60
             position = {axis: (xyz[axis] + words[axis] if relative else words[axis])
@@ -138,6 +154,24 @@ def _inspect(stream, settings):
             moving = position["X"] != xyz["X"] or position["Y"] != xyz["Y"]
             moving |= command in {"G2", "G3"} and any(key in words for key in ("I", "J", "R"))
             xyz = position
+            has_motion=moving or position["Z"]!=previous_xyz["Z"]
+            for axis in xyz:
+                if axis in words:
+                    if conditional_depth:
+                        known_xyz[axis] = False
+                    elif not relative:
+                        known_xyz[axis] = True
+            relevant = feature in OBJECT_FEATURES or feature in {"Support", "Support interface", "Brim", "Skirt"}
+            if has_motion and supported_coordinates and start_known and known_xyz["X"] and known_xyz["Y"] and (delta_e <= 0 or relevant):
+                a, b = [previous_xyz[k] for k in "XYZ"], [position[k] for k in "XYZ"]
+                if delta_e > 0 and layer_z is not None:
+                    a[2] = b[2] = layer_z
+                if known_xyz["Z"] or layer_z is not None:
+                    if layer_height is not None and layer_height>0:
+                        comparison.layer_height=layer_height
+                    comparison.move(a,b,delta_e>0,feature,line_number,command,words,bool(conditional_depth))
+            elif has_motion and relevant and delta_e > 0:
+                comparison.unknown("Some labeled object paths lacked a known absolute XY frame.")
             if delta_e <= 0 or not moving:
                 continue
             label = feature or "Unlabeled"
@@ -180,13 +214,14 @@ def _inspect(stream, settings):
             "object_layers": {"count": len(layers), "z_range_mm": [min(layers), max(layers)] if layers else None,
                               "nominal_height_counts": [{"height_mm": value, "extrusion_moves": count}
                                                         for value, count in heights.most_common(16)]},
+            "geometry_comparison": comparison.result(),
             "features": {key: {"extrusion_moves": value["extrusion_moves"],
                                "commanded_feed_mm_s": _summary(value["feeds"]),
                                "commanded_print_acceleration_mm_s2": _summary(value["accelerations"])}
                          for key, value in features.items()}}
 
 
-def inspect_sliced_project(path):
+def inspect_sliced_project(path, geometry_report=None):
     """Inspect each embedded plate G-code; never run it or change the archive."""
     with zipfile.ZipFile(path) as archive:
         infos = archive.infolist()
@@ -199,10 +234,12 @@ def inspect_sliced_project(path):
             raise ValueError("Archived project settings must be an object")
         settings = {key: value for key, value in settings.items() if key in SETTING_KEYS}
         plates = []
+        if geometry_report and sum(bool(re.fullmatch(r"Metadata/plate_\d+\.gcode",i.filename)) for i in infos)>1:
+            geometry_report=dict(geometry_report,coordinate_frame_unknown="Multiple plate origins require a plate-to-model mapping; geometry correlation was skipped.")
         for info in infos:
             if re.fullmatch(r"Metadata/plate_\d+\.gcode", info.filename):
                 with archive.open(info) as binary, io.TextIOWrapper(binary, encoding="utf-8", errors="replace") as stream:
-                    plates.append(dict(path=info.filename, **_inspect(stream, settings)))
+                    plates.append(dict(path=info.filename, **_inspect(stream, settings, geometry_report)))
     issues = []
     threshold = settings.get("small_perimeter_threshold")
     thresholds = threshold if isinstance(threshold, list) else [threshold]

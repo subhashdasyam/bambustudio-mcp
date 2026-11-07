@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "scope": {
     "studio_version": "02.08.04.57",
     "source_revision": "79df7ae309be398ed30c9f397c13c9911c2edc57",
@@ -894,7 +894,9 @@
             "Consider local walls and infill only for an identified structural need.",
             "Compare the joint and its surrounding load path.",
             "Explain purpose-designed insert bores or captive nuts as CAD alternatives.",
-            "Inserts can improve repeat assembly, but do not always increase joint strength."
+            "Inserts can improve repeat assembly, but do not always increase joint strength.",
+            "Ask about moving parts, hinges, mating holes, cosmetic faces and load direction before a remedy.",
+            "Do not treat a fused print-in-place joint as an infill or nominal material-strength problem. Review clearances and roof/bed geometry first."
           ],
           "keys": [
             "wall_loops",
@@ -941,7 +943,10 @@
         "layer_height",
         "nozzle_diameter",
         "min_layer_height",
-        "max_layer_height"
+        "max_layer_height",
+        "detect_thin_wall",
+        "wall_generator",
+        "line_width"
       ],
       "rules": [
         {
@@ -979,6 +984,48 @@
             {
               "url": "https://wiki.bambulab.com/en/general/filament-guide-material-table",
               "evidence_class": "manufacturer_procedure"
+            }
+          ]
+        },
+        {
+          "id": "mesh_and_thin_feature_preflight",
+          "guidance": [
+            "Compare thin walls and pins against the project line width. Two lines are a review threshold, not the absolute printer limit.",
+            "Check detect_thin_wall against the active wall-generator mode. It cannot restore geometry below the available extrusion resolution.",
+            "Distinguish coarse mesh facets, intentional narrow CAD steps and layer stairs on shallow tops.",
+            "Use a smoother CAD export for coarse facets. Use local variable layers for layer stairs; neither control deletes intentional CAD shelves.",
+            "Treat slenderness as a geometric heuristic. Load direction, material and physical tests still determine usable strength."
+          ],
+          "keys": [
+            "detect_thin_wall",
+            "wall_generator",
+            "line_width",
+            "layer_height"
+          ],
+          "scope_limits": [
+            "Read current catalog scopes and project-derived nozzle, line-width and layer-height values. No universal numerical recipe."
+          ],
+          "capability_limits": [
+            "Sampled normal thickness is not the global minimum. Face-normal and scan-line probes can miss local thin regions.",
+            "An STL cannot identify whether fine angular facets represent a smooth CAD curve or intentional stop steps.",
+            "A finer layer does not universally improve adhesion, bridge quality or structural strength."
+          ],
+          "acceptance_checks": [
+            "Inspect normalized settings and actual paths in the thin region.",
+            "Compare a representative feature under the actual intended load."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/parameter/line-width",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.cnckitchen.com/blog/the-influence-of-layer-height-on-the-strength-of-fdm-3d-prints",
+              "evidence_class": "original_experiment"
             }
           ]
         }
@@ -1032,6 +1079,252 @@
             {
               "url": "https://wiki.bambulab.com/en/x2d/manual/tpu-printing-guide",
               "evidence_class": "manufacturer_procedure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "print_in_place",
+      "label": "Print-in-place motion and clearances",
+      "observation_needed": [
+        "Identify moving components, hinge axes, side clearance, vertical clearance and the intended first-layer contact."
+      ],
+      "candidate_keys": [
+        "elefant_foot_compensation",
+        "xy_hole_compensation",
+        "seam_position",
+        "layer_height"
+      ],
+      "rules": [
+        {
+          "id": "moving_clearance_preflight",
+          "guidance": [
+            "Run analyze_geometry on the exact revision before slicing. Show its highlighted previews and issue IDs.",
+            "Review gaps below two project line widths in XY or two project layer heights in Z. These are requested conservative heuristics, not proven failure limits.",
+            "A gap below one line width or one layer height has a higher risk rank. A 0.5 mm gap can pass that rank and retain an advisory.",
+            "The Protolabs design table recommends 0.5 mm for FDM moving/connecting parts. Prusa gives a conditional 0.3 mm starting point. Neither certifies this printer or hinge.",
+            "BBox overlap indicates a possible interlock. Confirm motion intent, then review clearance at every nominal analysis layer.",
+            "Cut out the risky joint in CAD or manually in Studio for a short coupon. Retain both mating parts, orientation and clearance.",
+            "After slicing, inspect paths in the measured void against the geometry issue ID. A path intrusion is not proof of physical fusion."
+          ],
+          "keys": [
+            "elefant_foot_compensation",
+            "xy_hole_compensation",
+            "seam_position",
+            "layer_height"
+          ],
+          "scope_limits": [
+            "Read current catalog scopes and project-derived nozzle, line-width and layer-height values. No universal numerical recipe."
+          ],
+          "capability_limits": [
+            "Geometry uses deterministic scan-line probes and nominal project layers. Variable profiles, local overrides and unprobed diagonal gaps can differ.",
+            "Supports or brims inside a moving clearance can fuse the joint. Extra infill does not fix a narrow clearance.",
+            "The MCP does not cut CAD, infer intended motion, or measure actual free movement."
+          ],
+          "acceptance_checks": [
+            "Use the actual screw/pin and a representative hinge coupon.",
+            "Measure motion, clearance and first-layer spread after cooling."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.hubs.com/knowledge-base/how-design-parts-fdm-3d-printing/",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.protolabs.com/media/viknghfd/pl_3dp_design_rules_en.pdf",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/GCode.cpp#L8489-L8501",
+              "evidence_class": "pinned_slicer_source"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "holes_lying_flat",
+      "label": "Horizontal holes and pins",
+      "observation_needed": [
+        "Identify hole/pin axis, bore diameter, roof shape, required fit and whether the part moves."
+      ],
+      "candidate_keys": [
+        "bridge_speed",
+        "bridge_flow",
+        "enable_overhang_speed",
+        "enable_support",
+        "xy_hole_compensation"
+      ],
+      "rules": [
+        {
+          "id": "horizontal_roof_geometry",
+          "guidance": [
+            "Review circular tunnel profiles with an axis parallel to the bed. Their upper roof becomes progressively unsupported.",
+            "Use a teardrop or diamond roof with self-supporting sides, orient the axis vertically, or finish the bore after printing.",
+            "Keep pin and socket geometry compatible when motion matters. Do not add permanent support inside an inaccessible moving joint.",
+            "Compare bridge and overhang paths at the roof Z range after slicing.",
+            "XY hole compensation acts on closed XY paths. It cannot repair the open roof of a horizontal tunnel."
+          ],
+          "keys": [
+            "bridge_speed",
+            "bridge_flow",
+            "enable_overhang_speed",
+            "enable_support",
+            "xy_hole_compensation"
+          ],
+          "scope_limits": [
+            "Read current catalog scopes and project-derived nozzle, line-width and layer-height values. No universal numerical recipe."
+          ],
+          "capability_limits": [
+            "Circle fits measure section profiles. X/Y and up to four facet-inferred horizontal axes can miss other oblique tunnels, partial bores or tiny teardrop tips.",
+            "A diameter and axis estimate do not determine sag or a physical fit.",
+            "A horizontal external pin needs underside support; it does not have a hollow roof."
+          ],
+          "acceptance_checks": [
+            "Compare a matching bore/pin coupon and inspect roof sag.",
+            "Check the actual G-code bridge direction, span and extrusion in clearance regions."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.hubs.com/knowledge-base/how-design-parts-fdm-3d-printing/",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://edufacturing.com/design-for-am/teardrop-profile/",
+              "evidence_class": "educational_design_guidance"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/xy-hole-contour-compensation",
+              "evidence_class": "manufacturer_design_guidance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bed_contact",
+      "label": "Bed contact and first-layer clearance",
+      "observation_needed": [
+        "Identify tangent curves, bottom fillets, contact footprint and measured per-side elephant-foot expansion if available."
+      ],
+      "candidate_keys": [
+        "elefant_foot_compensation",
+        "initial_layer_line_width",
+        "initial_layer_print_height"
+      ],
+      "rules": [
+        {
+          "id": "bed_tangent_and_squish",
+          "guidance": [
+            "Review steep underside facets in the near-bed band. The heuristic band is ten layers or four line widths, whichever is larger.",
+            "Prefer a flat or chamfered base over a downward bed-facing fillet when surface quality matters.",
+            "Compare first-layer gaps with a two-sided expansion budget. Use measured per-side expansion when available.",
+            "Without that measurement, the report uses half the initial line width per side as a conservative proxy.",
+            "elefant_foot_compensation shrinks the planned contour. It does not measure real squish and does not validate a moving hinge."
+          ],
+          "keys": [
+            "elefant_foot_compensation",
+            "initial_layer_line_width",
+            "initial_layer_print_height"
+          ],
+          "scope_limits": [
+            "Read current catalog scopes and project-derived nozzle, line-width and layer-height values. No universal numerical recipe."
+          ],
+          "capability_limits": [
+            "Bed contact assumes world Z=0. It does not simulate adhesion, thermal curl or the effect of a textured plate.",
+            "A curved base can have a narrow footprint despite a broad bounding box.",
+            "The proxy budget is not a manufacturer formula or a measured material property."
+          ],
+          "acceptance_checks": [
+            "Compare the actual first-layer footprint and cooled clearance.",
+            "Calibrate compensation for the actual plate/material and inspect brim contact."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://help.prusa3d.com/article/elephant-foot-compensation_114487",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/parameter/elephant-foot",
+              "evidence_class": "manufacturer_design_guidance"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bridges",
+      "label": "Bridges, overhangs and floating islands",
+      "observation_needed": [
+        "Identify unsupported roof spans, their direction, overhang angle convention and any floating region."
+      ],
+      "candidate_keys": [
+        "bridge_speed",
+        "bridge_angle",
+        "bridge_flow",
+        "enable_overhang_speed",
+        "enable_support",
+        "support_type"
+      ],
+      "rules": [
+        {
+          "id": "bridge_and_island_preflight",
+          "guidance": [
+            "Review unsupported ceilings and their shortest horizontal facet span. That span is a candidate direction, not a calibrated maximum bridge length.",
+            "Review section regions with no overlap on the preceding nominal layer. Generated support can provide a base after slicing.",
+            "Use orientation, self-supporting geometry or removable support before a speed/cooling experiment.",
+            "Check bridge and overhang labels, move lengths and directions after slicing, linked to the original issue IDs.",
+            "Document angle conventions. The analyzer threshold is underside tilt from horizontal; it is not every slicer overhang parameter."
+          ],
+          "keys": [
+            "bridge_speed",
+            "bridge_angle",
+            "bridge_flow",
+            "enable_overhang_speed",
+            "enable_support",
+            "support_type"
+          ],
+          "scope_limits": [
+            "Read current catalog scopes and project-derived nozzle, line-width and layer-height values. No universal numerical recipe."
+          ],
+          "capability_limits": [
+            "Prusa and Hubs give conditional overhang guidance. Protolabs lists a 10 mm FDM bridge guideline; these are not universal Bambu limits.",
+            "max_bridge_length exists in this catalog for specific unsupported-hole behavior. It is not a certified bridge capacity.",
+            "Geometry cannot prove support removability, bridge success or first-layer bonding."
+          ],
+          "acceptance_checks": [
+            "Use a bridge coupon in the actual material and orientation.",
+            "Review generated support and paths near islands and moving clearances."
+          ],
+          "sources": [
+            {
+              "url": "https://help.prusa3d.com/article/modeling-with-3d-printing-in-mind_164135",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.hubs.com/knowledge-base/how-design-parts-fdm-3d-printing/",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://www.protolabs.com/media/viknghfd/pl_3dp_design_rules_en.pdf",
+              "evidence_class": "manufacturer_design_guidance"
+            },
+            {
+              "url": "https://wiki.bambulab.com/en/software/bambu-studio/parameter/bridge",
+              "evidence_class": "manufacturer_design_guidance"
             }
           ]
         }

@@ -22,11 +22,29 @@ def validate_context(context):
         if not isinstance(value, str) or not value.strip() or len(value) > 4000:
             raise ValueError(f"{name}: expected nonempty text, at most 4000 characters")
 
-    setup_fields = ["printer_model", "firmware_version", "build_plate", "environment", "intended_use"]
-    fields(context, setup_fields + ["nozzles", "filaments", "concerns", "observations"], "context")
+    setup_fields = ["printer_model", "firmware_version", "build_plate", "environment", "intended_use",
+                    "moving_parts", "hinges", "fit_requirements", "load_direction"]
+    fields(context, setup_fields + ["nozzles", "filaments", "concerns", "observations", "cosmetic_faces", "elephant_foot_expansion_mm"], "context")
     for key in setup_fields:
         if key in context:
             text(context[key], key)
+    if "elephant_foot_expansion_mm" in context and finite_number(context["elephant_foot_expansion_mm"]) < 0:
+        raise ValueError("elephant_foot_expansion_mm is a nonnegative measured per-side expansion")
+    faces = context.get("cosmetic_faces", [])
+    if not isinstance(faces,list) or len(faces)>50:
+        raise ValueError("cosmetic_faces must contain at most 50 world-coordinate regions")
+    for face in faces:
+        fields(face,["name","bounds_mm","avoid_seams","ironing"],"cosmetic face")
+        text(face.get("name"),"cosmetic face name")
+        bounds=face.get("bounds_mm")
+        if not isinstance(bounds,list) or len(bounds)!=2 or any(not isinstance(p,list) or len(p)!=3 for p in bounds):
+            raise ValueError("cosmetic face bounds_mm needs [minimum_xyz,maximum_xyz]")
+        for low,high in zip(*bounds):
+            if finite_number(low)>finite_number(high):
+                raise ValueError("cosmetic face minimum must not exceed maximum")
+        for key in ("avoid_seams","ironing"):
+            if key in face and not isinstance(face[key],bool):
+                raise ValueError(f"cosmetic face {key} must be boolean")
     if "nozzles" in context:
         if not isinstance(context["nozzles"], list) or not 1 <= len(context["nozzles"]) <= 16:
             raise ValueError("nozzles must contain 1..16 active nozzle declarations in project order")
@@ -84,7 +102,8 @@ def prepare(catalog, settings, context):
     guide = quality_guide()
     missing, warnings, plans = [], [], []
     unknown = {"unknown", "unspecified"}
-    for key in ("printer_model", "firmware_version", "build_plate", "environment", "intended_use", "nozzles", "filaments", "concerns"):
+    for key in ("printer_model", "firmware_version", "build_plate", "environment", "intended_use", "nozzles", "filaments", "concerns",
+                "moving_parts", "hinges", "fit_requirements", "cosmetic_faces", "load_direction"):
         if key not in context or (isinstance(context[key], str) and context[key].strip().lower() in unknown):
             missing.append(key)
     configured_printer = settings.get("printer_model")
@@ -166,8 +185,17 @@ def prepare(catalog, settings, context):
              "action": "Requires multiple active nozzles and a supported model/interface pair. Filament selection is not physical nozzle assignment."},
         ]
     relevant = {key for category in selected for key in category["candidate_keys"]}
+    requirement_questions = {
+        "moving_parts":"Must any parts move relative to each other? Describe their motion or record none.",
+        "hinges":"Does the model contain hinges or print-in-place pins? Describe their axis and how they must move, or record none.",
+        "fit_requirements":"Which holes, pins or mating surfaces need to fit, and what are their measured clearances? Record none if not applicable.",
+        "cosmetic_faces":"Which world-coordinate face regions matter cosmetically? Mark seam avoidance and intended ironing, or record an empty list.",
+        "load_direction":"What load direction and mounting contacts must the part withstand? Record none for a nonstructural part.",
+    }
     return {"input_status": "incomplete" if missing else "declared", "missing_inputs": missing,
-            "questions": [{"field": key, "question": f"Confirm {key} for the actual print setup. Leave unavailable calibration measurements unset."} for key in missing],
+            "questions": [{"field": key, "question": requirement_questions.get(key,f"Confirm {key} for the actual print setup. Leave unavailable calibration measurements unset.")} for key in missing],
+            "requirement_guides":{"moving_parts":["print_in_place"],"hinges":["print_in_place","holes_lying_flat","bed_contact"],
+                                  "fit_requirements":["dimensional_fit","holes_lying_flat"],"cosmetic_faces":["visible_walls","seams","tops"],"load_direction":["joints"]},
             "warnings": warnings, "filament_plans": plans, "prerequisites": guide["prerequisites"],
             "support_paths": support_paths,
             "current_settings": {key: {"value": catalog.decode(key, settings[key]), "scopes": catalog.options[key]["scopes"]}

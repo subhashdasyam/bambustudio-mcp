@@ -9,6 +9,7 @@ from bambustudio_mcp.service import Service
 
 def context():
     return {"printer_model": "Bambu Lab P1S",
+            "moving_parts":"none","hinges":"none","fit_requirements":"Threaded holes","cosmetic_faces":[],"load_direction":"none",
             "firmware_version": "test firmware", "build_plate": "Textured PEI",
             "environment": "Closed enclosure; ambient not measured", "intended_use": "Indoor enclosure with threaded holes",
             "nozzles": [{"diameter_mm": 0.4, "material": "hardened steel", "variant": "standard"}],
@@ -143,3 +144,17 @@ def test_new_remedies_are_reachable_for_p1s_and_other_models():
         ids = {r["id"] for c in report["selected_guides"] for r in c["rules"]}
         assert {"upright_curved_surface", "fine_layers_and_nozzle", "adaptive_curved_tops",
                 "low_resistance_flexible_feed", "separate_support_material"} <= ids
+
+
+def test_missing_design_intent_questions_and_cosmetic_region_validation():
+    report=prepare(Catalog(),{}, {})
+    questions={q['field']:q['question'] for q in report['questions']}
+    assert {'moving_parts','hinges','fit_requirements','cosmetic_faces','load_direction'}<=questions.keys()
+    assert report['requirement_guides']['hinges']==['print_in_place','holes_lying_flat','bed_contact']
+    validate_context({'cosmetic_faces':[{'name':'top','bounds_mm':[[0,0,2],[2,2,2]],'avoid_seams':True,'ironing':True}],
+                      'elephant_foot_expansion_mm':.1})
+    for bad in ({'cosmetic_faces':[{'name':'x','bounds_mm':[[0,0,0],[1,1,float('nan')]]}]},
+                {'cosmetic_faces':[{'name':'x','bounds_mm':[[1,0,0],[0,1,1]]}]},
+                {'cosmetic_faces':[{'name':'x','bounds_mm':[[0,0,0],[1,1,1]],'ironing':'yes'}]},
+                {'elephant_foot_expansion_mm':-.1}):
+        with pytest.raises(ValueError):validate_context(bad)

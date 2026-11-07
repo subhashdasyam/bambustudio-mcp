@@ -27,6 +27,7 @@ def test_detached_job_and_reconnect(service, opened):
     reconnected = Service(service.workspace, service.runtime)
     job = await_job(reconnected, job)
     assert job["status"] == "succeeded", job
+    assert any(i['id']=='geometry_analysis_missing' for i in job['unresolved_geometry_issues'])
     assert job["result"]["sliced_plates"][0]["total_predication"] == 60
     assert job["inspection"]["status"] == "unknown"
     assert job["artifacts"]["inspection"] == "inspection.json"
@@ -90,6 +91,28 @@ def test_job_report_excludes_printer_credentials(service, project_file):
     job = await_job(service, service.start_slice(opened["project_id"]))
     assert job["status"] == "succeeded"
     assert "test-secret" not in json.dumps(job)
+
+
+def test_revision_specific_geometry_warning_snapshot_and_export(service,opened,tmp_path):
+    pid,revision=opened['project_id'],opened['revision']
+    geometry=service.analyze_geometry(pid,revision)
+    job=await_job(service,service.start_slice(pid,revision))
+    assert job['status']=='succeeded'
+    assert not any(i['id']=='geometry_analysis_missing' for i in job['unresolved_geometry_issues'])
+    assert (service.workspace/'jobs'/job['job_id']/'geometry.json').exists()
+    known={i['id'] for i in geometry['issues']}
+    assert all(i['id'] in known or i['category']=='analysis' for i in job['unresolved_geometry_issues'])
+    changed=service.apply_settings(pid,revision,{'wall_loops':4})
+    exported=service.export_project(pid,changed['revision'],str(tmp_path/'unreviewed.3mf'))
+    assert any(i['id']=='geometry_analysis_missing' for i in exported['unresolved_geometry_issues'])
+    assert (tmp_path/'unreviewed.3mf').exists()  # Warning, not a block.
+    service.record_print_context(pid,changed['revision'],{'cosmetic_faces':[]})
+    service.analyze_geometry(pid,changed['revision'])
+    observed=service.record_print_context(pid,changed['revision'],{'cosmetic_faces':[],
+        'observations':[{'kind':'surface_finish','status':'unverified','notes':'A sample has not yet been inspected.'}]})
+    assert observed['geometry_analysis_status']!='not_run_or_stale'
+    service.record_print_context(pid,changed['revision'],{'cosmetic_faces':[{'name':'important','bounds_mm':[[20,30,0],[30,40,10]]}]})
+    assert service.get_print_guidance(pid,changed['revision'])['geometry_analysis_status']=='not_run_or_stale'
 
 
 @pytest.mark.asyncio
