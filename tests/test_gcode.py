@@ -181,6 +181,31 @@ def test_arc_correlation_follows_arc_instead_of_chord(tmp_path):
     assert not report['plates'][0]['geometry_comparison']['observations']
 
 
+def test_compressed_clearance_run_preserves_probes_without_filling_between_them(tmp_path):
+    issue=clearance_issue()
+    issue['clearance_regions'][0].update(scan_axis=1,scan_step_mm=1.,scan_count=3)
+    for y,expected in [(0,True),(2,True),(.5,False)]:
+        code=f'G90\nM83\nG0 X0 Y{y} Z.2\n'+OBJECT+'G1 X2 E1\n'
+        c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+        assert any(o['kind']=='extrusion_in_clearance' for o in c['observations'])==expected
+    issue=clearance_issue((1,0,.1),(1,0,.3))
+    issue['clearance_regions'][0].update(z_range_mm=[.1,.3],scan_axis=1,scan_step_mm=1.,scan_count=3,
+                                        plane_axis=0,plane_step_mm=1.,plane_count=3)
+    for y,expected in [(2,True),(1.5,False)]:
+        code=f'G90\nM83\nG0 X2.5 Y{y} Z.2\n'+OBJECT+'G1 X3.5 E1\n'
+        c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+        assert any(o['kind']=='extrusion_in_clearance' for o in c['observations'])==expected
+
+
+def test_grouped_bridge_matches_local_ceiling_regions(tmp_path):
+    issue={'id':'geo-group','category':'bridges','location':{'bbox_mm':[[0,0,0],[10,1,1]]},
+           'ceiling_regions':[{'bbox_mm':[[0,0,0],[1,1,1]]},{'bbox_mm':[[9,0,0],[10,1,1]]}]}
+    for x,expected in [(0,True),(5,False)]:
+        code=f'G90\nM83\nG0 X{x} Y0 Z.2\n; FEATURE: Bridge\nG1 X{x+1} E1\n'
+        c=inspect_sliced_project(sliced(tmp_path,code),geometry_issues(issue))['plates'][0]['geometry_comparison']
+        assert bool(c['observations'])==expected
+
+
 def test_extruder_offset_alignment_and_unknown_differing_offsets(tmp_path):
     code="G90\nM83\nG0 X0 Y-2 Z.2\n"+OBJECT+"G1 X2 E1\n"
     report=geometry_issues(clearance_issue())

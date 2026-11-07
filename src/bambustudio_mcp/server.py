@@ -118,7 +118,7 @@ def create_server(service=None):
         """Find geometric print-risk candidates using nominal layer sections, facing clearances, roofs, bed contact and mesh facets; save highlighted SVG previews.
 
         Coordinates are world millimetres. Thickness is sampled geometry, not mechanical strength.
-        Overhang angle is the downward-face threshold from horizontal in degrees (0..90). Results are heuristics. Read coverage limits and show the highlighted previews before slicing.
+        Overhang angle is the downward-face threshold from horizontal in degrees (0..90). Results are heuristics. Read coverage limits and show the highlighted previews before slicing. Detailed clearance probes stay in report_path for slice correlation; the response includes their counts.
         """
         return await asyncio.to_thread(service.analyze_geometry, project_id, revision, overhang_angle)
 

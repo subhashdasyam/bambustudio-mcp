@@ -72,6 +72,13 @@ Run `analyze_geometry` for the exact revision and show the highlighted SVG befor
 Issues include stable IDs, category, severity, bbox/Z range, measurement/threshold, rationale, design fix and slicer controls.
 Layer scans identify clearance, roof, contact, island and thin-feature risks. Surface checks identify facet and layer-step candidates.
 All classifications are heuristics. Read `analysis_status`, scan coverage and limitations before a conclusion.
+The response includes all issues and preview links. Detailed clearance probes stay in the full JSON at `report_path`;
+`clearance_region_count` reports their number per issue, with up to 20 entries in `clearance_region_sample`.
+Runs encode adjacent scan lines and planes; slice correlation expands the original probes without filling between samples.
+The 4,096-run cap reports partial coverage when reached. Slice jobs use the full saved report for correlation.
+Bridge candidates are grouped per part, retaining local `ceiling_regions` for path matching.
+Thin section candidates include `minimum_section` endpoints and surface normals; nonparallel wedge samples remain advisory.
+Print-in-place bounds cover the intersecting component boxes. Analysis from an older algorithm version requires a new run.
 
 The analysis uses project-level process values. Adaptive schedules and local overrides can differ from its nominal grid.
 `start_slice` and `export_project` return `unresolved_geometry_issues` for missing/stale analysis or open high-severity issues.

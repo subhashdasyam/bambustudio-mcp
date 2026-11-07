@@ -13,6 +13,8 @@ from .sections import components, contains, intervals, merge_intervals, outer_lo
 
 GUIDE_CATEGORIES={"clearances":"print_in_place","floating_islands":"bridges","thin_features":"fine_detail",
                   "faceting":"fine_detail","overhangs":"bridges","cosmetic_faces":"seams","top_surfaces":"tops"}
+MAX_CLEARANCE_REGIONS = 4096
+ANALYSIS_VERSION = 2
 
 
 def context_signature(context):
@@ -85,7 +87,7 @@ class Findings:
         return entry
 
 
-def _gap(findings, parts, a, b, threshold, width, layer_range, first, params):
+def _gap(findings, parts, a, b, threshold, width, layer_range, first, params, scan_axis, scan_step):
     distance = float(np.linalg.norm(b - a))
     if distance <= 1e-6 or distance >= threshold - 1e-7:
         return
@@ -101,15 +103,17 @@ def _gap(findings, parts, a, b, threshold, width, layer_range, first, params):
                          ("xy_hole_compensation", "elefant_foot_compensation", "seam_position"),
                          severity="high" if distance < (width if axis == "xy" else params["layer_height_mm"]) - 1e-5 else "medium",
                          direction=axis, relation="same-part facing surfaces" if same else "separate parts", parts=sorted(parts), clearance_regions=[])
-    coordinates=tuple(np.round(np.r_[a[:2],b[:2]],7)) if axis=="xy" else tuple(np.round(np.r_[a,b],7))
+    coordinates=tuple(np.round(np.r_[np.delete(a,scan_axis),np.delete(b,scan_axis),layer_range],7))
     cache=findings.region_index.setdefault(entry["id"],{})
-    previous=cache.get(coordinates)
-    if axis=="xy" and previous and abs(previous["z_range_mm"][1]-layer_range[0])<1e-6:
-        previous["z_range_mm"][1]=layer_range[1]
-    elif len(entry["clearance_regions"]) < 60000:
-        region = {"a_mm": a.tolist(), "b_mm": b.tolist(), "z_range_mm": list(layer_range), "gap_mm": distance}
+    key=(scan_axis,coordinates)
+    previous=cache.get(key)
+    if previous and abs(a[scan_axis]-(previous["a_mm"][scan_axis]+previous["scan_count"]*scan_step))<1e-7:
+        previous["scan_count"]+=1
+    elif len(entry["clearance_regions"]) < MAX_CLEARANCE_REGIONS:
+        region = {"a_mm": a.tolist(), "b_mm": b.tolist(), "z_range_mm": list(layer_range), "gap_mm": distance,
+                  "scan_axis":scan_axis,"scan_step_mm":scan_step,"scan_count":1}
         entry["clearance_regions"].append(region)
-        cache[coordinates]=region
+        cache[key]=region
     else:
         entry["regions_truncated"] = True
     if first and distance < params["first_layer_squash_budget_mm"]:
@@ -122,6 +126,8 @@ def _gap(findings, parts, a, b, threshold, width, layer_range, first, params):
 
 def _scan_clearances(sections, axis, positions, plane_axis, plane, findings, params, layer_range, first):
     width = params["line_width_mm"]
+    axes = [i for i in range(3) if i != plane_axis]
+    scan_step=float(positions[1]-positions[0]) if len(positions)>1 else width/2
     for coordinate in positions:
         solid = []
         for part, segments in sections:
@@ -135,21 +141,25 @@ def _scan_clearances(sections, axis, positions, plane_axis, plane, findings, par
                             a[axis],b[axis]=lo,hi
                             a[1-axis]=b[1-axis]=coordinate
                             a[2],b[2]=layer_range
-                            findings.add([part,"section_width"],"thin_features",[a,b],float(hi-lo),2*width,"mm solid section width",
+                            entry=findings.add([part,"section_width"],"thin_features",[a,b],float(hi-lo),2*width,"mm solid section width",
                                          "Opposing boundaries of a solid section are less than two extrusion lines apart. A narrow wall or pin can become a fragile single line or disappear.",
                                          "Thicken the feature or select a compatible smaller physical nozzle.",("detect_thin_wall","wall_generator","line_width"),
                                          severity="high" if hi-lo<width-1e-5 else "medium")
+                            if hi-lo<=entry["measurement"]["value"]:
+                                start,end=a.copy(),b.copy()
+                                start[2]=end[2]=plane
+                                entry["minimum_section"]={"a_mm":start.tolist(),"b_mm":end.tolist(),"z_mm":plane,
+                                                          "part":part,"boundary_alignment":[float(align_lo),float(align_hi)]}
         union = merge_intervals(solid)
         for left, right in zip(union, union[1:]):
             if min(left[5], right[4]) < .5:
                 continue  # Tangent slivers at a cavity's edge are not opposing clearance faces.
             a, b = np.zeros(3), np.zeros(3)
-            axes = [i for i in range(3) if i != plane_axis]
             a[plane_axis] = b[plane_axis] = plane
             a[axes[1-axis]] = b[axes[1-axis]] = coordinate
             a[axes[axis]], b[axes[axis]] = left[1], right[0]
             threshold = params["z_gap_threshold_mm"] if axes[axis] == 2 else params["xy_gap_threshold_mm"]
-            _gap(findings, (left[3], right[2]), a, b, threshold, width, layer_range, first, params)
+            _gap(findings, (left[3], right[2]), a, b, threshold, width, layer_range, first, params, axes[1-axis], scan_step)
 
 
 def _circle(loop):
@@ -166,6 +176,30 @@ def _circle(loop):
         return None
     residual = float(np.max(np.abs(np.linalg.norm(centered-fit[:2], axis=1)-radius)) / radius)
     return center0+fit[:2], radius, residual
+
+
+def _merge_clearance_regions(issue, width, bounds):
+    """Coalesce identical runs across adjacent layers/planes, preserving the probe lattice."""
+    merged,cache=[],{}
+    horizontal=issue["direction"]=="xy"
+    for region in issue["clearance_regions"]:
+        plane_axis=2 if horizontal else 1-region["scan_axis"]
+        key=tuple(np.round(np.r_[np.delete(region["a_mm"],plane_axis),np.delete(region["b_mm"],plane_axis),
+                                region["scan_axis"],region["scan_step_mm"],region["scan_count"]],7))
+        previous=cache.get(key)
+        plane_step=max(width,(bounds[1,plane_axis]-bounds[0,plane_axis])/512)
+        if horizontal and previous and abs(previous["z_range_mm"][1]-region["z_range_mm"][0])<1e-6:
+            previous["z_range_mm"][1]=region["z_range_mm"][1]
+        elif not horizontal and previous and abs(region["a_mm"][plane_axis]-(previous["a_mm"][plane_axis]+previous["plane_count"]*plane_step))<1e-7:
+            previous["plane_count"]+=region.get("plane_count",1)
+        else:
+            if not horizontal:
+                region.setdefault("plane_axis",plane_axis)
+                region.setdefault("plane_step_mm",plane_step)
+                region.setdefault("plane_count",1)
+            merged.append(region)
+            cache[key]=region
+    issue["clearance_regions"]=merged
 
 
 def _oblique_holes(parts,findings,params,epsilon):
@@ -243,7 +277,7 @@ def _surface_checks(part, findings, params, overhang_angle):
     ceiling = (normals[:, 2] < -.995) & (centers[:, 2] > params["first_layer_height_mm"])
     if ceiling.any():
         subset = _mesh(mesh.vertices, mesh.faces[ceiling])
-        for index, faces in enumerate(components(subset)):
+        for faces in components(subset):
             points = subset.triangles[faces].reshape(-1, 3)
             bounds = np.array([points.min(0), points.max(0)])
             spans = bounds[1, :2]-bounds[0, :2]
@@ -251,11 +285,17 @@ def _surface_checks(part, findings, params, overhang_angle):
             if len(positive) != 2:
                 continue
             axis = int(positive[np.argmin(spans[positive])])
-            findings.add([name, index], "bridges", bounds, float(spans[axis]), 2*width, "mm",
+            entry=findings.add(name, "bridges", bounds, float(spans[axis]), 2*width, "mm",
                          "A downward ceiling needs a supported bridge path or support. The bounding-box span is a geometric candidate, not a calibrated bridge limit.",
                          "Shorten the span, add a self-supporting roof/chamfer, or reorient the cavity.",
                          ("bridge_speed", "bridge_flow", "bridge_angle", "enable_support"),
-                         direction=(np.eye(3)[axis]).tolist(), span_method="shorter horizontal extent of connected ceiling facets")
+                         direction=(np.eye(3)[axis]).tolist(), span_method="shorter horizontal extent of connected ceiling facets",
+                         ceiling_regions=[])
+            entry["ceiling_regions"].append({"bbox_mm":bounds.tolist(),"span_mm":float(spans[axis]),"direction":np.eye(3)[axis].tolist()})
+            # A grouped bridge issue reports the longest candidate; each local span remains available.
+            longest=max(entry["ceiling_regions"],key=lambda region:region["span_mm"])
+            entry["measurement"]["value"]=longest["span_mm"]
+            entry["direction"]=longest["direction"]
     adjacency = mesh.face_adjacency
     if len(adjacency):
         angle = mesh.face_adjacency_angles
@@ -314,9 +354,9 @@ def preflight(project, mesh_reports, context, overhang_angle):
             parts.append({"id": name, "mesh": _mesh(mesh.vertices, mesh.faces[faces]),
                           "resource_id": resource["resource_id"], "instance": resource["instance"]})
     if not parts:
-        return {"analysis_version":1,"context_signature":context_signature(context),"issues": [], "analysis_status": "unknown", "parameters": params, "limitations": ["No normal-part meshes."]}
+        return {"analysis_version":ANALYSIS_VERSION,"context_signature":context_signature(context),"issues": [], "analysis_status": "unknown", "parameters": params, "limitations": ["No normal-part meshes."]}
     if params["missing"]:
-        return {"analysis_version":1,"context_signature":context_signature(context),"issues": [], "analysis_status": "unknown", "parameters": params,
+        return {"analysis_version":ANALYSIS_VERSION,"context_signature":context_signature(context),"issues": [], "analysis_status": "unknown", "parameters": params,
                 "limitations": ["Missing project nozzle/line width/layer height; resolution-dependent checks were not run."]}
     width, height = params["line_width_mm"], params["layer_height_mm"]
     epsilon = max(min(width, height)*1e-5, 1e-8)
@@ -327,7 +367,7 @@ def preflight(project, mesh_reports, context, overhang_angle):
             overlap = np.minimum(a["mesh"].bounds[1], b["mesh"].bounds[1])-np.maximum(a["mesh"].bounds[0], b["mesh"].bounds[0])
             if (overlap > 0).all():
                 pairs.append((a["id"], b["id"]))
-                findings.add([a["id"], b["id"]], "print_in_place", [np.minimum(a["mesh"].bounds[0], b["mesh"].bounds[0]), np.maximum(a["mesh"].bounds[1], b["mesh"].bounds[1])],
+                findings.add([a["id"], b["id"]], "print_in_place", [np.maximum(a["mesh"].bounds[0], b["mesh"].bounds[0]), np.minimum(a["mesh"].bounds[1], b["mesh"].bounds[1])],
                              float(overlap.min()), 0, "mm bbox overlap",
                              "Separate connected components have overlapping bounding boxes. Treat them as possible interlocking/moving parts until the user confirms intent.",
                              "Check clearance in every analysis layer and test a cut-out hinge/joint region. Bounding boxes alone do not prove mechanical interlock.",
@@ -426,6 +466,10 @@ def preflight(project, mesh_reports, context, overhang_angle):
                     entry["slicer_fix"].append({"edit_regions": "height_range", "action": "Review the roof Z range with compatible bridge/overhang controls. XY hole compensation cannot repair an open horizontal roof."}) if entry["occurrences"] == 1 else None
             _scan_clearances(layers, 1, positions[other_axis], plane_axis, plane, findings, params,
                              [0, float(bounds[1, 2])], False)
+            for issue in findings.entries.values():
+                if issue.get("direction")=="z" and "clearance_regions" in issue:
+                    _merge_clearance_regions(issue,width,bounds)
+                    findings.region_index.pop(issue["id"],None)
     for index, face in enumerate(context.get("cosmetic_faces", [])):
         low, high = face["bounds_mm"]
         entry=findings.add([face["name"],face["bounds_mm"],face.get("avoid_seams",True),face.get("ironing",False)], "cosmetic_faces", [low, high], 0, 0, "user-declared region",
@@ -436,9 +480,24 @@ def preflight(project, mesh_reports, context, overhang_angle):
             entry["top_samples_mm"]=_top_samples(parts,np.asarray([low,high]),width/2)
     oblique=_oblique_holes(parts,findings,params,epsilon)
     result = list(findings.entries.values())
+    for issue in result:
+        if "minimum_section" in issue:
+            sample=issue["minimum_section"]
+            mesh=next(part["mesh"] for part in parts if part["id"]==sample["part"])
+            _,_,faces=trimesh.proximity.closest_point_naive(mesh,np.array([sample["a_mm"],sample["b_mm"]]))
+            normals=mesh.face_normals[faces]
+            sample["surface_normals"]=normals.tolist()
+            sample["opposing_parallel_faces"]=bool(normals[0]@normals[1]<-.95)
+            if not sample["opposing_parallel_faces"]:
+                issue["severity"]="medium"
+                issue["why_it_fails"]="The minimum sampled section is a narrow wedge/sliver between nonparallel surfaces, not an established wall thickness. Check its local layer paths before changing the design. Other section samples were not classified."
+            issue["affected_bbox_mm"]=issue["location"]["bbox_mm"]
+            issue["location"]={"bbox_mm":[sample["a_mm"],sample["b_mm"]],"z_range_mm":[sample["z_mm"]]*2}
+        if "clearance_regions" in issue:
+            _merge_clearance_regions(issue,width,bounds)
     if any(i.get("regions_truncated") for i in result):
-        limits.append("Clearance evidence regions capped at 60000 per issue. Later unsaved regions cannot be correlated with G-code.")
-    return {"analysis_version": 1, "analysis_status": "partial" if limits else "complete", "parameters": params,
+        limits.append(f"Clearance evidence regions capped at {MAX_CLEARANCE_REGIONS} runs per issue. Later unsaved regions cannot be correlated with G-code.")
+    return {"analysis_version": ANALYSIS_VERSION, "analysis_status": "partial" if limits else "complete", "parameters": params,
             "context_signature": context_signature(context), "bounds_mm": bounds.tolist(), "issues": result,
             "layer_scan": {"count": len(z_values), "spacing_mm": height, "z_range_mm": [float(z_values[0]), float(z_values[-1])] if len(z_values) else [],
                            "xy_probe_spacing_mm": sample_step, "vertical_section_count": vertical_planes,

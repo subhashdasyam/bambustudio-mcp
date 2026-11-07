@@ -133,6 +133,43 @@ def test_first_layer_schedule_and_constant_gap_region_compression():
     assert first and all(i['location']['z_range_mm']==[0,.2] for i in first)
     gaps=[i for i in r['issues'] if i['category']=='clearances']
     assert any(region['z_range_mm'][0]==0 and region['z_range_mm'][1]>.9 for i in gaps for region in i['clearance_regions'])
+    assert sum(len(i['clearance_regions']) for i in gaps)==1
+
+
+def test_long_hinge_response_size_and_interlock_bounds(service, opened, monkeypatch):
+    import json
+    from bambustudio_mcp import service as service_module
+    mesh=hinge(.2)
+    mesh.apply_scale([130/12,1,1])
+    geometry=analyze(project(mesh))
+    monkeypatch.setattr(service_module,'analyze',lambda *args,**kwargs:geometry)
+    report=service.analyze_geometry(opened['project_id'])
+    assert report['analysis_status']=='complete'
+    assert len(json.dumps(report).encode())<200_000
+    assert all(i['clearance_region_count']<1000 for i in report['issues'] if 'clearance_region_count' in i)
+    interlock=next(i for i in report['issues'] if i['category']=='print_in_place')
+    assert interlock['location']['bbox_mm']==pytest.approx(np.array([[-130*5/12,-1.8,2.2],[130*5/12,1.8,5.8]]))
+
+
+def test_clearance_run_cap_reports_partial_coverage(monkeypatch):
+    monkeypatch.setattr('bambustudio_mcp.preflight.MAX_CLEARANCE_REGIONS',1)
+    report=analyze(project(hinge(.2)))
+    assert report['analysis_status']=='partial'
+    assert any('capped at 1 runs' in limit for limit in report['limitations'])
+    assert all(len(i['clearance_regions'])<=1 for i in report['issues'] if 'clearance_regions' in i)
+
+
+def test_narrow_wedge_section_is_not_reported_as_a_parallel_thin_wall():
+    vertices=np.array([[0,-2,0],[0,-2,2],[1,-2,2],[0,2,0],[0,2,2],[1,2,2]])
+    faces=[[0,2,1],[3,4,5],[0,1,4],[0,4,3],[1,2,5],[1,5,4],[2,0,3],[2,3,5]]
+    wedge=trimesh.Trimesh(vertices,faces,process=True)
+    report=analyze(project(wedge))
+    thin=next(i for i in report['issues'] if 'minimum_section' in i)
+    assert thin['severity']=='medium' and not thin['minimum_section']['opposing_parallel_faces']
+    assert thin['location']['z_range_mm']==[thin['minimum_section']['z_mm']]*2
+    wall=trimesh.creation.box([.2,3,2]);wall.apply_translation([0,0,1])
+    thin=next(i for i in analyze(project(wall))['issues'] if 'minimum_section' in i)
+    assert thin['severity']=='high' and thin['minimum_section']['opposing_parallel_faces']
 
 
 def test_issue_schema_ids_highlights_and_measured_squish():

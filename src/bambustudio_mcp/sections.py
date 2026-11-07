@@ -122,6 +122,18 @@ def segment_distance(a, b, points):
     return np.linalg.norm(points - (a + t[:, None] * delta), axis=1)
 
 
+def clearance_probes(region):
+    """Expand exact regularly spaced probes; do not fill the space between samples."""
+    for plane in range(region.get("plane_count",1)):
+        for i in range(region.get("scan_count", 1)):
+            a,b=np.array(region["a_mm"],dtype=float),np.array(region["b_mm"],dtype=float)
+            for count,axis,step in ((i,region.get("scan_axis",0),region.get("scan_step_mm",0)),
+                                    (plane,region.get("plane_axis",0),region.get("plane_step_mm",0))):
+                a[axis]+=count*step
+                b[axis]+=count*step
+            yield {**region,"a_mm":a.tolist(),"b_mm":b.tolist()}
+
+
 def overlaps(loop, previous):
     """Polygon overlap including crossing edges; containment alone misses crossed thin strips."""
     if not previous:

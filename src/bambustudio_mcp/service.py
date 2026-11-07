@@ -168,10 +168,10 @@ class Service:
         return context
 
     def _geometry_status(self,directory,revision):
-        from .preflight import context_signature
+        from .preflight import ANALYSIS_VERSION, context_signature
         path=directory/f"{revision}-geometry-report.json"
         report=json.loads(path.read_text()) if path.exists() else None
-        if not report or report.get("analysis_version")!=1 or report.get("context_signature")!=context_signature(self._geometry_context(directory,revision)):
+        if not report or report.get("analysis_version")!=ANALYSIS_VERSION or report.get("context_signature")!=context_signature(self._geometry_context(directory,revision)):
             return None,[{"id":"geometry_analysis_missing","category":"analysis","severity":"high",
                           "message":"Run analyze_geometry for this exact revision and current face requirements, and show the highlighted SVG before slicing or export."}]
         unresolved=[{key:issue[key] for key in ("id","category","severity","location","measurement")}
@@ -225,8 +225,14 @@ class Service:
         report.update(revision=revision, previews=previews)
         for issue in report["issues"]:
             issue["highlight_svg"]=[f'{p["path"]}#{issue["id"]}' for p in previews if p.get("projection")]
-        atomic_json(directory / f"{revision}-geometry-report.json", report)
-        return report
+        report_path = directory / f"{revision}-geometry-report.json"
+        atomic_json(report_path, report)
+        # Clearance probes are internal correlation data; MCP duplicates dict results on the wire.
+        issues = [{**{key: value for key, value in issue.items() if key != "clearance_regions"},
+                   "clearance_region_count": len(issue["clearance_regions"]),
+                   "clearance_region_sample": issue["clearance_regions"][:20]}
+                  if "clearance_regions" in issue else issue for issue in report["issues"]]
+        return {**report, "issues": issues, "report_path": str(report_path)}
 
     def edit_regions(self, project_id, revision, edits):
         self.runtime.require()

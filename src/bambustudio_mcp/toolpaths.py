@@ -6,7 +6,7 @@ import math
 import numpy as np
 from rtree import index
 
-from .sections import segment_distance
+from .sections import clearance_probes, segment_distance
 from .catalog import Catalog
 
 # Pinned GCodeWriter.hpp rounds XYZ/IJ to three decimals; radius comparisons need the accumulated rounding budget.
@@ -124,7 +124,7 @@ class ToolpathComparison:
         prop.dimension = 3
         self.index = index.Index(properties=prop)
         for issue in self.issues:
-            for region in issue.get("clearance_regions",[]):
+            for region in (probe for run in issue.get("clearance_regions",[]) for probe in clearance_probes(run)):
                 a,b = np.array(region["a_mm"]),np.array(region["b_mm"])
                 low,high = np.minimum(a,b),np.maximum(a,b)
                 low[2],high[2] = region["z_range_mm"]
@@ -195,7 +195,8 @@ class ToolpathComparison:
             for issue_id in sorted(hit_ids):
                 self.record(issue_id,"extrusion_in_clearance",a,b,line,feature)
             if feature in {"Bridge","Internal bridge","Overhang wall"}:
-                matched = [i for i in self.issues if i["category"] in {"bridges","holes_lying_flat","overhangs","floating_islands","bed_contact"} and box_crossing(a,b,i["location"]["bbox_mm"])]
+                matched = [i for i in self.issues if i["category"] in {"bridges","holes_lying_flat","overhangs","floating_islands","bed_contact"}
+                           and any(box_crossing(a,b,region["bbox_mm"]) for region in i.get("ceiling_regions",[{"bbox_mm":i["location"]["bbox_mm"]}]))]
                 for issue in matched:
                     self.record(issue["id"],"bridge_path" if "bridge" in feature.lower() else "overhang_perimeter",a,b,line,feature)
                 length=float(np.linalg.norm(b-a))

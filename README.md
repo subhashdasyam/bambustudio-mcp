@@ -12,7 +12,7 @@
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
 **STL or 3MF in. Configured 3MF out.**
-Current release: [0.4.0](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.4.0).
+Current release: [0.4.1](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.4.1).
 Start with an STL model or a saved 3MF project. Export the configured result as a new 3MF project for BambuStudio.
 
 > **This MCP server is for BambuStudio, the desktop slicer. It is NOT for Bambu Lab printer control.**
@@ -212,7 +212,7 @@ Saved 3MF projects retain their configuration.
 
 ## 🔎 Evidence, without the magic claims
 
-Version 0.4.0 checks report **114 automated passes** and a separate real BambuStudio slicing round trip.
+Version 0.4.1 checks report **121 automated passes** and a separate real BambuStudio slicing round trip.
 Earlier records also cover Claude Code and Codex workflows.
 See the [evidence and its limits](docs/verification.md) before you interpret these results.
 

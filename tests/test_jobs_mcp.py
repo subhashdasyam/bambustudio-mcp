@@ -4,6 +4,7 @@ import os
 import sys
 import time
 from importlib.metadata import version
+from pathlib import Path
 
 import pytest
 from mcp import ClientSession, StdioServerParameters
@@ -115,6 +116,34 @@ def test_revision_specific_geometry_warning_snapshot_and_export(service,opened,t
     assert service.get_print_guidance(pid,changed['revision'])['geometry_analysis_status']=='not_run_or_stale'
 
 
+def test_geometry_response_keeps_large_probe_arrays_on_disk(service, opened, monkeypatch):
+    from mcp.types import CallToolResult, TextContent
+    from bambustudio_mcp.preflight import ANALYSIS_VERSION, context_signature
+
+    region = {"a_mm": [0, 0, 0.1], "b_mm": [0.2, 0, 0.1],
+              "z_range_mm": [0, 0.2], "gap_mm": 0.2}
+    issue = {"id": "geo-test-gap", "category": "clearances", "severity": "high", "status": "open",
+             "location": {"bbox_mm": [[0, 0, 0], [0.2, 0, 0.2]]},
+             "measurement": {"value": 0.2, "threshold": 0.8}, "clearance_regions": [region] * 53000}
+    detailed = {"analysis_version": ANALYSIS_VERSION, "analysis_status": "complete", "context_signature": context_signature({}),
+                "issues": [issue], "previews": [{"svg": "<svg/>", "projection": "top"}]}
+    monkeypatch.setattr("bambustudio_mcp.service.analyze", lambda *args, **kwargs: detailed)
+    report = service.analyze_geometry(opened["project_id"], opened["revision"])
+    assert report["issues"][0]["id"] == issue["id"]
+    assert report["issues"][0]["clearance_region_count"] == 53000
+    assert len(report["issues"][0]["clearance_region_sample"]) == 20
+    assert "clearance_regions" not in report["issues"][0]
+    assert report["issues"][0]["highlight_svg"]
+    assert len(json.loads(Path(report["report_path"]).read_text())["issues"][0]["clearance_regions"]) == 53000
+    # Include both MCP representations: a Python-only geometry test missed this transport failure.
+    wire = CallToolResult(content=[TextContent(type="text", text=json.dumps(report, indent=2))], structuredContent=report)
+    assert len(wire.model_dump_json(by_alias=True).encode()) < 100_000
+    job = await_job(service, service.start_slice(opened["project_id"], opened["revision"]))
+    assert job["status"] == "succeeded"
+    snapshot = json.loads((service.workspace / "jobs" / job["job_id"] / "geometry.json").read_text())
+    assert len(snapshot["issues"][0]["clearance_regions"]) == 53000
+
+
 @pytest.mark.asyncio
 async def test_comparison(service, opened):
     job = await service.compare_candidates(opened["project_id"], opened["revision"],
@@ -154,6 +183,10 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
             assert "threads" in {c["id"] for c in json.loads(guide.contents[0].text)["categories"]}
             opened = await client.call_tool("open_project", {"path": str(project_file)})
             project = json.loads(opened.content[0].text)
+            geometry = await client.call_tool("analyze_geometry", {"project_id": project["project_id"]})
+            assert not geometry.isError
+            assert json.loads(geometry.content[0].text)["report_path"].endswith("-geometry-report.json")
+            assert not (await client.call_tool("list_options", {"query": "wall_loops"})).isError
             prepared = await client.call_tool("record_print_context", {"project_id": project["project_id"],
                 "revision": project["revision"], "context": {"printer_model": "Bambu Lab P1S", "concerns": ["threads"]}})
             assert not prepared.isError
@@ -163,3 +196,41 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
             assert json.loads(inspected.content[0].text)["status"] == "unknown"
             bad = await client.call_tool("get_job", {"job_id": "../../escape"})
             assert bad.isError
+
+
+@pytest.mark.asyncio
+async def test_real_stand_geometry_over_stdio(tmp_path):
+    path = Path('/home/onepiece/dev/tiiny/3dpart/tiiny_stand_wide_P1S_PLA_fine.gcode.3mf')
+    if not path.exists():
+        pytest.skip('Local stand archive is not distributed with the package')
+    params = StdioServerParameters(command=sys.executable, args=["-m", "bambustudio_mcp.server"],
+                                   env={**os.environ, "BAMBUSTUDIO_WORKSPACE": str(tmp_path / "stand-mcp")})
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as client:
+            await client.initialize()
+            opened = await client.call_tool("open_project", {"path": str(path)})
+            project = json.loads(opened.content[0].text)
+            result = await client.call_tool("analyze_geometry", {"project_id": project["project_id"]})
+            assert not result.isError
+            # Claude Code rejects a single stdio message above 10 MiB; leave ample headroom.
+            assert len(result.model_dump_json(by_alias=True).encode()) < 1024 * 1024
+            report = json.loads(result.content[0].text)
+            assert {'holes_lying_flat', 'print_in_place', 'bed_contact', 'faceting', 'clearances'} <= {
+                issue['category'] for issue in report['issues']}
+            assert any(issue.get('clearance_region_count', 0) > 0 for issue in report['issues'])
+            assert all(len(issue.get('clearance_region_sample', [])) <= 20 for issue in report['issues'])
+            assert all('clearance_regions' not in issue for issue in report['issues'])
+            detailed = json.loads(Path(report['report_path']).read_text())
+            assert [i['id'] for i in detailed['issues']] == [i['id'] for i in report['issues']]
+            assert sum(len(i.get('clearance_regions', [])) for i in detailed['issues']) == sum(
+                i.get('clearance_region_count', 0) for i in report['issues'])
+            assert all(Path(preview['path']).is_file() for preview in report['previews'])
+            inspected = await client.call_tool('inspect_slice', {'project_id': project['project_id']})
+            assert not inspected.isError
+            assert len(inspected.model_dump_json(by_alias=True).encode()) < 10 * 1024 * 1024
+            comparisons = [plate['geometry_comparison'] for plate in json.loads(inspected.content[0].text)['plates']]
+            assert comparisons and all(item['status'] == 'observed' for item in comparisons)
+            ids = {issue['id'] for issue in report['issues']}
+            assert all(item['geometry_issue_id'] in ids for c in comparisons for item in c['issue_results'])
+            assert any(c['observations'] for c in comparisons)
+            assert not (await client.call_tool('list_options', {'query': 'wall_loops'})).isError

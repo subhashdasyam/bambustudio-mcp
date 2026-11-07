@@ -83,6 +83,19 @@ Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, pl
 These cases check advice paths. They do not establish physical behavior on those printers.
 The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
 
+## Version 0.4.1 checks
+
+The 0.4.1 release checks on 2026-11-07 reported 121 automated passes and one skipped live test.
+The separate real Studio slicing test passed.
+The stand archive also passed an MCP stdio round trip: geometry analysis returned below 1 MiB,
+all issue IDs and preview links remained available, and subsequent slice inspection and tool calls succeeded.
+An additional 53,000-probe regression checks that the full saved report reaches the slice job.
+The 130 mm hinge test checks a tool summary below 200 KB. Probe-run controls check the original samples,
+including negative controls between samples, and partial-coverage reporting when the cap is reached.
+The stand's bridge candidates group into three issues. Its minimum 0.054 mm section at Z=1.46 mm
+lies between nonparallel vertical and sloping faces; it is a wedge candidate, not established wall thickness.
+These tests cover the oversized response that exceeded Claude Code's 10 MiB transport buffer in 0.4.0.
+
 ## Version 0.4.0 checks
 
 The 0.4.0 release checks on 2026-11-07 reported 114 automated passes and one skipped live test.
