@@ -18,6 +18,7 @@ from .geometry import analyze
 from .project import Project, children, metadata
 from .runtime import Runtime
 from .reports import geometry_summary, inspection_summary
+from .presets import Presets, editable_setting
 
 
 class Service:
@@ -26,6 +27,7 @@ class Service:
         self.workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.runtime = runtime or Runtime()
         self.catalog = Catalog()
+        self.presets = Presets()
 
     def _directory(self, project_id):
         path = self.workspace / "projects" / identifier(project_id)
@@ -218,6 +220,62 @@ class Service:
                 raise ValueError("Provide at least one setting change")
             diff = project.apply(self.catalog, changes, scope, target)
             return self._commit(directory, state, revision, project, diff)
+
+    def apply_preset(self, project_id, revision, target, kind, name, keys, filament_index=None,
+                     dry_run=True, expected_preset_revision=None):
+        if not isinstance(dry_run, bool) or not isinstance(keys, list) or not keys or len(keys)>50 or not all(isinstance(key,str) for key in keys) or len(set(keys))!=len(keys):
+            raise ValueError("Select 1..50 distinct setting keys and a boolean dry_run")
+        directory = self._directory(project_id)
+
+        def prepare():
+            _, state, _, project = self._load(project_id, revision)
+            if revision != state["head"]:
+                raise ValueError("Stale project revision")
+            source = self.presets.run(target, "read", kind=kind, name=name, keys=keys)
+            if expected_preset_revision is not None and expected_preset_revision != source["resolution_revision"]:
+                raise ValueError("Stale preset ancestry; read the preset again")
+            printer = project.settings.get("printer_settings_id")
+            printers = source["compatible_printers"]
+            if not isinstance(printer,str) or not isinstance(printers,list) or not printers or printer not in printers:
+                raise ValueError("Saved printer/nozzle profile is missing or not explicitly compatible with this preset")
+            if source["compatibility_conditions_present"]:
+                raise ValueError("Conditional compatibility expressions require manual verification; automatic application is unavailable")
+            processes = source["compatible_prints"]
+            if not isinstance(processes,list) or (processes and project.settings.get("print_settings_id") not in processes):
+                raise ValueError("Saved process profile is not explicitly compatible with this preset")
+            changes = {}
+            for key in keys:
+                editable_setting(key, source["settings"], self.catalog)
+                value = self.catalog.decode(key, source["settings"][key])
+                if kind == "filament":
+                    assignments = project.settings.get("filament_settings_id") or project.settings.get("filament_type")
+                    current = self.catalog.decode(key, project.settings.get(key))
+                    if (not isinstance(assignments,list) or not isinstance(filament_index,int) or isinstance(filament_index,bool)
+                            or not 0<=filament_index<len(assignments) or not isinstance(value,list) or len(value)!=1
+                            or not isinstance(current,list) or len(current)!=len(assignments)):
+                        raise ValueError(f"{key}: ambiguous filament/extruder vector mapping; select an existing filament slot")
+                    combined = list(current)
+                    combined[filament_index] = value[0]
+                    value = combined
+                changes[key] = value
+            for key in ("layer_height", "initial_layer_print_height"):
+                if key not in changes:
+                    continue
+                lower = self.catalog.decode("min_layer_height", project.settings.get("min_layer_height")) or []
+                upper = self.catalog.decode("max_layer_height", project.settings.get("max_layer_height")) or []
+                if (any(v and v>0 and changes[key]<v for v in lower) or any(v and v>0 and changes[key]>v for v in upper)):
+                    raise ValueError("Preset layer height is outside the saved nozzle-profile limits")
+            diff = project.apply(self.catalog, changes)
+            provenance = {"target":target,"kind":kind,"name":name,"resolution_revision":source["resolution_revision"]}
+            return state,project,diff,provenance
+
+        if dry_run:
+            _,_,diff,source = prepare()
+            return {"project_id":project_id,"revision":revision,"dry_run":True,"changes":diff,"preset_source":source}
+        self.runtime.require()
+        with locked(directory/"project.lock"):
+            state,project,diff,source = prepare()
+            return dict(self._commit(directory,state,revision,project,[*diff,{"preset_source":source}]),dry_run=False,preset_source=source)
 
     def analyze_geometry(self, project_id, revision=None, overhang_angle=45.0):
         directory, _, revision, project = self._load(project_id, revision)

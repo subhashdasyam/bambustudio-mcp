@@ -1,0 +1,21 @@
+services:
+  mcp:
+    build:
+      context: .
+      args:
+        MCP_UID: ${MCP_UID:-65532}
+        MCP_GID: ${MCP_GID:-65532}
+    stdin_open: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      BAMBUSTUDIO_PRESET_TARGETS: /etc/bambustudio-mcp/targets.json
+    volumes:
+      - ${PRESET_TARGETS_CONFIG:?set PRESET_TARGETS_CONFIG}:/etc/bambustudio-mcp/targets.json:ro
+      - ${PRESET_ROOT:?set PRESET_ROOT}:/targets/desktop:rw
+      - ${BAMBU_DEFAULTS:?set BAMBU_DEFAULTS}:/defaults/BBL:ro
+      # Optional, after configuring the SSH alias and verified known_hosts:
+      # - ${SSH_DIRECTORY}:/home/mcp/.ssh:ro
+    tmpfs:
+      - /tmp:mode=1777

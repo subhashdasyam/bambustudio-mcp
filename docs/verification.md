@@ -83,6 +83,15 @@ Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, pl
 These cases check advice paths. They do not establish physical behavior on those printers.
 The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
 
+## Version 0.5.0 checks
+
+The 0.5.0 release suite on 2026-11-15 reported 165 passes and two skipped live tests.
+Separate live runs passed the original Studio round trip and reusable-process application followed by slicing.
+Preset tests use pinned upstream resources, cover both layouts and inheritance, content and ancestry revisions,
+exact backup/restore, typed settings, unsafe paths/files, concurrent creation, and bounded helper requests.
+MCP tests discover 29 tools, execute preset operations, and confirm that invalid optional target configuration leaves core tools usable.
+SSH tests run the real helper through a simulated SSH executable; they do not establish connectivity to a workstation.
+
 ## Version 0.4.2 checks
 
 The 0.4.2 release checks on 2026-11-07 reported 131 automated passes and one skipped live test.
@@ -127,7 +136,7 @@ The image contains no BambuStudio runtime or profiles. It cannot slice a model w
 Use the Dockerfile contents as the build spec in Glama Admin.
 Start a build after the repository update.
 Check the public Schema page after Glama completes introspection.
-The expected interface has 19 tools, six resources, one resource template, and one prompt.
+The expected interface has 29 tools, six resources, one resource template, and one prompt.
 The MCP initialization reports the installed `bambustudio-mcp` package version, not the SDK version.
 Version 0.3.0 adds conditional guidance for curves, detail, domes, flexible feed and support removal.
 Version 0.4.0 adds geometry preflight, highlighted issue locations and G-code comparisons.

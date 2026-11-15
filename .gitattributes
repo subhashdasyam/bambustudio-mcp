@@ -1,0 +1,2 @@
+# Upstream fixture bytes are checked against their original source hashes.
+tests/fixtures/preset_profiles/**/*.json -whitespace

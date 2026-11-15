@@ -1,0 +1,50 @@
+{
+  "process/0.20mm Standard @BBL X1C.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/process/0.20mm%20Standard%20%40BBL%20X1C.json",
+    "sha256": "e4d3f211b6ef87e9612c96f3ac2d18413e0610fff7eeb815a76420344a3b0a19"
+  },
+  "process/fdm_process_single_0.20.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/process/fdm_process_single_0.20.json",
+    "sha256": "cdda8d56d67f62a0faa892cb6efc605ebb5c745bf742f6ead4daaeb6627c182a"
+  },
+  "process/fdm_process_single_common.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/process/fdm_process_single_common.json",
+    "sha256": "05b38ac1318e465e817978b36da51754f928da0172738a20bb3a8d4a69eb4769"
+  },
+  "process/fdm_process_common.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/process/fdm_process_common.json",
+    "sha256": "5c16ba3f17a36cc8f01743245e221426b3cdceac7cc367758d6f48d86b63d8ef"
+  },
+  "filament/Generic PETG HF @BBL X1C.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/Generic%20PETG%20HF%20%40BBL%20X1C.json",
+    "sha256": "00da60766cd7c139e4bb715fa9eb2a3f02a31fcea304eaaa3993e4b73f287853"
+  },
+  "filament/Generic PETG HF @base.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/Generic%20PETG%20HF%20%40base.json",
+    "sha256": "d37ebcd9ec3a1fd8e5d0c61f7f115489eaccd8a229ea06ed3de3e1afd248046e"
+  },
+  "filament/fdm_filament_pet.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/fdm_filament_pet.json",
+    "sha256": "3ed1b36367fe6df800103a9deaaa036f9d79c7afda3f3a17514dff23aa96c7d8"
+  },
+  "filament/fdm_filament_common.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/fdm_filament_common.json",
+    "sha256": "8c7105b7d59a28f600c43a946f067b8b4d707b9711c0bf6b88e9166e48878548"
+  },
+  "filament/fdm_filament_template_direct_dual.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/fdm_filament_template_direct_dual.json",
+    "sha256": "e0f564b83f3ef70cce4de1401dd7cd855d6fbd834343cb8f4292f2a1ac3efc51"
+  },
+  "filament/Bambu Support For PLA-PETG @BBL X1C.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/Bambu%20Support%20For%20PLA-PETG%20%40BBL%20X1C.json",
+    "sha256": "ce97750db953dbde866b9524a3cd2cac3bd0bcbca6844671e537f495916380cc"
+  },
+  "filament/Bambu Support For PLA-PETG @base.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/Bambu%20Support%20For%20PLA-PETG%20%40base.json",
+    "sha256": "dc0c7cb4e7e01fee56825e9f6c9d7424802d29bbf010fb121b76676d4e5af2a7"
+  },
+  "filament/fdm_filament_pla.json": {
+    "url": "https://raw.githubusercontent.com/bambulab/BambuStudio/79df7ae309be398ed30c9f397c13c9911c2edc57/resources/profiles/BBL/filament/fdm_filament_pla.json",
+    "sha256": "670d21ea6bdf1cd4b0a2bfddc743612ffd896cd6e5dbe767c25d2c4165c49a30"
+  }
+}

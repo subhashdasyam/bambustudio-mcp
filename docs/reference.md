@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Print preparation](usage.md)
 
-The server exposes 19 tools over MCP stdio. Tool discovery supplies the current input schemas.
+The server exposes 29 tools over MCP stdio. Tool discovery supplies the current input schemas.
 
 ## Tools
 
@@ -27,6 +27,19 @@ The server exposes 19 tools over MCP stdio. Tool discovery supplies the current 
 | `compare_candidates` | Compare the baseline with one to seven alternatives |
 | `export_project` | Export a revision to a new destination |
 | `open_in_studio` | Open a saved revision in the BambuStudio GUI |
+| `list_preset_targets` | List configured reusable-preset libraries without exposing private paths or SSH aliases |
+| `list_presets` | Page process or filament presets by internal name |
+| `read_preset` | Read identity, ancestry fingerprint and selected resolved keys |
+| `derive_preset` | Preview a new reusable preset with typed changes |
+| `validate_preset` | Check stored ancestry and report catalog issues |
+| `create_preset` | Preview or create a new preset without replacing an existing name |
+| `update_preset` | Preview or update a user preset with a revision guard and backup |
+| `list_preset_backups` | Page checksummed prior versions |
+| `restore_preset` | Preview or restore exact prior bytes with revision protection |
+| `apply_preset` | Preview selected settings against a project, or create a new project revision |
+
+Read the [reusable-preset guide](reusable-presets.md) for target configuration, storage layouts, SSH and activation limits.
+Storage writes and project application default to dry-run. Preset storage does not require a Studio executable.
 
 ## Resources and prompt
 

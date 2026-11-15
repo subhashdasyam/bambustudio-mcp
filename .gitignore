@@ -5,3 +5,8 @@ __pycache__/
 dist/
 /runtime/
 /exa-results/
+.env
+.env.*
+/targets.json
+/targets.local.json
+/compose.override.yaml

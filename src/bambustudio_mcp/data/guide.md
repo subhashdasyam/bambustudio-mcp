@@ -146,6 +146,20 @@ Top-travel observations exclude Z-hop and later-covered footprints, and link onl
 Shared observations can appear under several issue IDs. Use unique path totals to avoid counting them twice.
 Ironing coverage checks sampled intended top points with the archived spacing. It does not prove every point is smooth.
 
+## Reusable preset libraries
+
+Use `list_preset_targets` to discover configured storage. No targets means the administrator must configure
+`BAMBUSTUDIO_PRESET_TARGETS`; do not guess account directories or SSH hosts. Read the repository's reusable-preset guide for setup.
+Use paged `list_presets` and `read_preset` with selected keys. Pick a concrete compatible process or filament base.
+`derive_preset` previews typed changes; `create_preset`, `update_preset` and `restore_preset` default to dry-run.
+Explain the target and diff before an actual requested write. Updates/restores need the current content revision and save backups.
+Process presets assign support-material slots. Filament presets describe material, not AMS tray selection.
+Storage does not require Studio; applying selected settings to a project or slicing does.
+`apply_preset` checks the saved printer/nozzle and selected material slot. Preview first, preserve unselected settings,
+and use the source ancestry fingerprint when committing a new project revision. Rerun geometry analysis afterward.
+External desktop preset edits require Studio/cloud writers to be stopped, then a reload/import and GUI verification.
+No preset tool activates a profile in a running GUI, synchronizes cloud metadata or starts a printer.
+
 ## Primary references
 
 - BambuStudio source: https://github.com/bambulab/BambuStudio

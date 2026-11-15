@@ -12,7 +12,11 @@
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
 **STL or 3MF in. Configured 3MF out.**
-Current release: [0.4.2](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.4.2).
+Current release: [0.5.0](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.5.0).
+
+Reusable process and filament libraries now support configured local or SSH targets, previews, revision guards and backup/restore.
+Apply selected preset settings to a project as a new revision after checking printer/nozzle and material-slot compatibility.
+See [preset setup and examples](docs/reusable-presets.md).
 Start with an STL model or a saved 3MF project. Export the configured result as a new 3MF project for BambuStudio.
 
 > **This MCP server is for BambuStudio, the desktop slicer. It is NOT for Bambu Lab printer control.**
@@ -207,12 +211,13 @@ Saved 3MF projects retain their configuration.
 | [Installation](docs/installation.md) | Official AppImage, extraction, checksums, profiles, workspace, and runtime problems |
 | [Claude Code and Codex](docs/clients.md) | CLI setup, saved paths, connection checks, and the `--env` error |
 | [Print preparation](docs/usage.md) | Useful input, candidate comparisons, revisions, and physical checks |
-| [Tool reference](docs/reference.md) | All 19 tools, resources, scopes, value types, and spatial edits |
+| [Tool reference](docs/reference.md) | All 29 tools, resources, scopes, value types, and spatial edits |
+| [Reusable presets](docs/reusable-presets.md) | Process and filament libraries, local/SSH targets, backups, and project application |
 | [Verification and limits](docs/verification.md) | Recorded evidence, repeatable checks, coverage gaps, and development checks |
 
 ## 🔎 Evidence, without the magic claims
 
-Version 0.4.2 checks report **131 automated passes** and a separate real BambuStudio slicing round trip.
+Version 0.5.0 checks report **165 automated passes** and two separate real BambuStudio slicing checks.
 Earlier records also cover Claude Code and Codex workflows.
 See the [evidence and its limits](docs/verification.md) before you interpret these results.
 

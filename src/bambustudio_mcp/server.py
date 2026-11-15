@@ -38,6 +38,8 @@ def create_server(service=None):
     mcp._mcp_server.version = version("bambustudio-mcp")
     read = ToolAnnotations(readOnlyHint=True, destructiveHint=False, openWorldHint=False)
     write = ToolAnnotations(readOnlyHint=False, destructiveHint=False, openWorldHint=False)
+    from .preset_tools import register
+    register(mcp,service,compact_result)
 
     @mcp.tool(annotations=read)
     async def get_environment() -> dict:
