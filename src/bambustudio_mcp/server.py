@@ -24,7 +24,7 @@ FILAMENT_INSTRUCTIONS = (
     "Check saved filament settings against the confirmed spool before slicing."
 )
 
-INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Run analyze_geometry for the exact revision before slicing, show its highlighted SVG previews, and explain unresolved issue IDs. Ask about moving parts, hinges, fitting holes, cosmetic faces and load direction. Suggest a small cut-out joint coupon before a long moving-part print. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. Poll jobs until terminal status. Preserve the original and export to a new filename."""
+INSTRUCTIONS = f"""Prepare saved BambuStudio projects; never control a printer. Inspect the project and options first. Confirm the actual printer, every active nozzle and filament. Ask for intended loads, critical surfaces and time constraints when missing. {FILAMENT_INSTRUCTIONS} Read bambustudio://quality-guide and call get_print_guidance before recommendations. Record user declarations with record_print_context. Resolve missing inputs and hardware/material mismatches. Run analyze_geometry for the exact revision before slicing, show its highlighted SVG previews, and explain unresolved issue IDs. Ask about moving parts, hinges, fitting holes, cosmetic faces and load direction. Suggest a small cut-out joint coupon before a long moving-part print. Use explicit revisions for changes. Compare alternatives against an unchanged baseline. Review get_job inspection or call inspect_slice for existing sliced archives. Check commands separately from saved settings. Use matched physical samples for fit and finish decisions. Geometry and slicer estimates do not prove strength or finish. Read bambustudio://guide before recommendations. Studio's unsaved GUI state is not synchronized. For a GUI slicing warning, call diagnose_warning first with its exact text, saved revision, affected object/plate and GUI version when known. Review get_job native_diagnostics and supply its slice job_id for reproduction. Use bundled warning rules, saved settings, geometry and G-code evidence before external research. Unknown warnings stay unknown; source lookup is a last fallback and must match the Studio version, never assume master. No warning in CLI artifacts does not establish resolution in the GUI. Poll jobs until terminal status. Preserve the original and export to a new filename."""
 
 
 def compact_result(report):
@@ -95,6 +95,21 @@ def create_server(service=None):
         return service.get_print_guidance(project_id, revision)
 
     @mcp.tool(annotations=read)
+    async def diagnose_warning(project_id: str, revision: str | None = None, warning_text: str = "",
+                               job_id: str | None = None, target: dict | None = None,
+                               studio_version: str | None = None) -> Annotated[CallToolResult, dict]:
+        """Diagnose a native Studio warning using bundled sourced rules and exact-revision slice evidence first.
+
+        Paste warning_text (up to 4000 characters), or supply an individual slice job_id, including failed jobs.
+        target optionally selects object_id and 1-based plate_index from inspect_project. studio_version is the
+        GUI version as reported by the user. Returns missing details, scoped settings, related geometry IDs,
+        native log/result warnings and next checks. Geometry links and English message recognition are heuristic;
+        unsaved GUI state and native feature locations are unknown. No warning observed does not mean resolved.
+        """
+        return compact_result(await asyncio.to_thread(service.diagnose_warning, project_id, revision, warning_text,
+                                                      job_id, target, studio_version))
+
+    @mcp.tool(annotations=read)
     async def inspect_slice(project_id: str, revision: str | None = None, job_id: str | None = None) -> Annotated[CallToolResult, dict]:
         """Inspect embedded G-code targets, object layers and feature feeds without running it.
 
@@ -145,7 +160,7 @@ def create_server(service=None):
 
     @mcp.tool(annotations=read)
     def get_job(job_id: str) -> Annotated[CallToolResult, dict]:
-        """Read persistent slice or comparison status, log tail, estimates, and output locations."""
+        """Read persistent status, native_diagnostics with sourced warning explanations, log tail, estimates and output paths. Use diagnose_warning for scoped investigation."""
         return compact_result(service.get_job(job_id))
 
     @mcp.tool(annotations=write)

@@ -4,6 +4,7 @@ import asyncio
 import copy
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -200,6 +201,136 @@ class Service:
         report_path=directory/f"{revision}-slice-inspection{('-'+job_id) if job_id else ''}.json"
         atomic_json(report_path,report)
         return inspection_summary(report,report_path)
+
+    def diagnose_warning(self, project_id, revision=None, warning_text="", job_id=None, target=None, studio_version=None):
+        from .diagnostics import classify, collect_native, native_summary, warning_guide
+
+        if not isinstance(warning_text, str) or len(warning_text) > 4000:
+            raise ValueError("warning_text must be text, at most 4000 characters")
+        if studio_version is not None and (not isinstance(studio_version, str) or len(studio_version) > 64):
+            raise ValueError("studio_version must be text, at most 64 characters")
+        target = {} if target is None else target
+        if not isinstance(target, dict) or set(target) - {"object_id", "plate_index"}:
+            raise ValueError("target supports only object_id and plate_index")
+        directory, _, revision, project = self._load(project_id, revision)
+        if "object_id" in target:
+            project.target("object", target)
+        if "plate_index" in target:
+            if isinstance(target["plate_index"], bool):
+                raise ValueError("plate_index must be an existing 1-based index")
+            project.target("plate", target)
+        guide = warning_guide()
+        native = {"status": "not_run", "messages": []}
+        job_evidence, effective = None, {}
+        if job_id:
+            job = self.get_job(job_id)
+            if job.get("project_id") != project_id or job.get("revision") != revision:
+                raise ValueError("Slice job must belong to this exact project revision")
+            job_dir = self.workspace / "jobs" / identifier(job_id)
+            request = json.loads((job_dir / "request.json").read_text())
+            if request.get("kind") == "comparison":
+                raise ValueError("Use the individual slice job_id, not a comparison job")
+            native = collect_native(job_dir)
+            atomic_json(job_dir / "diagnostics.json", native)
+            environment = request.get("environment", {})
+            job_evidence = {"job_id": job_id, "status": job["status"],
+                            "studio_version": environment.get("version"), "binary_sha256": environment.get("binary_sha256"),
+                            "result_path": str(job_dir / "result.json"), "log_path": str(job_dir / "studio.log")}
+            if (job_dir / "effective-settings.json").is_file():
+                effective = json.loads((job_dir / "effective-settings.json").read_text())
+            if job["status"] in {"queued", "running"}:
+                native["status"] = "incomplete"
+        if not warning_text.strip() and not job_id:
+            raise ValueError("Provide warning_text from Studio or a slice job_id")
+        reported_ids = classify(warning_text)
+        rule_ids = set(reported_ids) | {key for message in native["messages"] for key in message["rule_ids"]}
+        keys = sorted({key for rule_id in rule_ids for key in guide["rules"][rule_id]["settings"]})
+        settings = project.get_settings(self.catalog)
+        values = {"project": {key: settings[key] for key in keys if key in settings}, "objects": []}
+        objects = children(project.config, "object")
+        names = re.findall(r"It seems object (.+?) has (?:floating regions|floating cantilever|large overhangs)\.", warning_text, re.I)
+        names += re.findall(r'Model "([^"]+)"|Object: ([^\n]+)', warning_text)
+        names = {name if isinstance(name, str) else next(n for n in name if n) for name in names}
+        selected = [obj for obj in objects if (obj.get("id") == str(target["object_id"]) if "object_id" in target
+                    else not names or metadata(obj).get("name") in names)]
+        for obj in selected[:8]:
+            object_target = {"object_id": obj.get("id")}
+            scoped = project.get_settings(self.catalog, "object", object_target)
+            values["objects"].append({**object_target, "name": metadata(obj).get("name"),
+                                      "values": {key: scoped[key] for key in keys if key in scoped},
+                                      "enforcer_volumes": sum(part.get("subtype") == "support_enforcer" for part in children(obj, "part")),
+                                      "local_overrides": [{"volume_id": part.get("id"), "values": {
+                                          key: self.catalog.decode(key, value) for key, value in metadata(part).items() if key in keys}}
+                                          for part in children(obj, "part") if set(metadata(part)) & set(keys)][:8]})
+        values["matching_object_count"] = len(selected)
+        painted, enforced, split = 0, 0, 0
+        for mesh in project.meshes():
+            for face in children(children(mesh["mesh"], "triangles")[0], "triangle"):
+                code = face.get("paint_supports")
+                painted += bool(code and code != "0")
+                enforced += code == "4"
+                split += bool(code and code not in {"0", "4", "8"})
+        values["support_paint"] = {"painted_faces": painted, "unsplit_enforced_faces": enforced,
+                                   "split_encoding_faces": split, "scope": "Whole project, repeated instances counted; split encodings are not decoded."}
+        if "plate_index" in target:
+            scoped = project.get_settings(self.catalog, "plate", target)
+            values["plate"] = {key: scoped[key] for key in keys if key in scoped}
+        values["studio_exported_project_values"] = {key: self.catalog.decode(key, effective[key]) for key in keys if key in effective}
+        values["coverage"] = "Saved project/object values and local overrides; Studio exports are project-level, not a per-region effective configuration."
+        differences = project.settings.get("different_settings_to_system")
+        values["preset_difference_metadata"] = {
+            "present": differences is not None,
+            "group_count": len(differences) if isinstance(differences, list) else None,
+            "nonempty_group_count": sum(bool(value) for value in differences) if isinstance(differences, list) else None,
+            "interpretation": "GUI preset loading uses this metadata. Empty or missing entries alone do not prove a reload error. If GUI values disagree, save and reopen the GUI file and compare the relevant settings.",
+            "source": f'https://github.com/bambulab/BambuStudio/blob/{guide["source_revision"]}/src/libslic3r/PresetBundle.cpp#L3760-L3999'}
+        geometry, unresolved = self._geometry_status(directory, revision)
+        categories = {category for key in rule_ids for category in guide["rules"][key]["categories"]}
+        related = [issue for issue in (geometry or {}).get("issues", []) if issue["category"] in categories]
+        observed = [message for message in native["messages"] if set(message["rule_ids"]) & set(reported_ids)
+                    and ("plate_index" not in target or message["plate_index"] == target["plate_index"])]
+        # Matching text is evidence of the warning class, not a native object/feature identity.
+        reproduction = "warning_class_observed" if observed else "not_observed" if job_id else "not_run"
+        if not reported_ids:
+            reproduction = "unknown_message" if warning_text.strip() else "no_reported_message"
+        if native["status"] == "incomplete":
+            reproduction = "incomplete"
+        questions = []
+        if not warning_text.strip():
+            questions.append("Paste the exact GUI warning text to compare it with the native job messages.")
+        if "object_id" not in target:
+            questions.append("Confirm the affected object from inspect_project; message names may be duplicated or unavailable.")
+        if "plate_index" not in target:
+            questions.append("Confirm the affected 1-based plate index.")
+        if not studio_version:
+            questions.append("Confirm the GUI Studio version if this warning came from the desktop app.")
+        if job_id is None:
+            questions.append("Save GUI edits to a new 3MF, open that file in MCP, then analyze and slice the exact revision to reproduce the warning.")
+        native_view = native_summary(native, self.workspace / "jobs" / job_id / "diagnostics.json") if job_id else native
+        native_view.pop("rules", None)
+        result = {"project_id": project_id, "revision": revision, "target": target,
+                  "reported_warning": {"text": warning_text, "rule_ids": reported_ids, "evidence": "user_reported"},
+                  "recognition": "Heuristic matching of known English message templates or exact short phrases.",
+                  "rule_version": guide["studio_version"], "source_revision": guide["source_revision"],
+                  "gui_version": studio_version, "gui_version_matches_rules": None if studio_version is None else studio_version == guide["studio_version"],
+                  "job": job_evidence, "reproduction": reproduction,
+                  "reproduction_scope": "Warning class on the exact saved revision and selected plate when supplied; object identity, location and unsaved GUI state are not confirmed.",
+                  "native_diagnostics": native_view,
+                  "rules": {key: value for key, value in guide["rules"].items() if key in rule_ids},
+                  "settings_evidence": values, "missing_inputs": questions,
+                  "setting_options": {key: {"label": self.catalog.options[key].get("label", key), "scopes": self.catalog.options[key]["scopes"]} for key in keys},
+                  "geometry": {"status": (geometry or {}).get("analysis_status", "not_run_or_stale"),
+                               "related_issue_count": len(related), "related_issues": [{key: issue[key] for key in ("id", "category", "location")} for issue in related[:12]],
+                               "link_evidence": "Related categories only; these are not confirmed native warning locations.",
+                               "report_path": str(directory / f"{revision}-geometry-report.json") if geometry else None,
+                               "previews": (geometry or {}).get("previews", [])[:4], "unresolved_issue_count": len(unresolved)},
+                  "next_tools": ["analyze_geometry", "get_settings", "start_slice", "get_job", "inspect_slice"],
+                  "limitations": guide["limitations"]}
+        if warning_text.strip() and not reported_ids:
+            result["unknown_message_action"] = "Keep this message unknown. Inspect native artifacts and saved settings first. Only if still unexplained, consult the matching Studio version/source revision; do not assume upstream master matches."
+        report_path = directory / f"{revision}-warning-diagnosis.json"
+        atomic_json(report_path, result)
+        return dict(result, report_path=str(report_path))
 
     def restore_revision(self, project_id, revision, restore):
         self.runtime.require()

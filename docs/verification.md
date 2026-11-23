@@ -83,6 +83,25 @@ Regression cases cover single-nozzle P1S, A1, X1 Carbon and P2S declarations, pl
 These cases check advice paths. They do not establish physical behavior on those printers.
 The MCP handshake reports the installed package version. The lockfile and local distribution build also passed.
 
+## Version 0.6.0 checks
+
+The 0.6.0 release suite on 2026-11-23 reported **183 passes and three skipped live tests**.
+The separate live run passed all three integration tests: the original Studio round trip,
+reusable-process application followed by slicing, and native-warning diagnosis.
+The warning test builds a floating component in code, reproduces Studio's native floating-regions
+message with supports disabled, and verifies that the supported revision does not emit that warning class.
+It also checks geometry links and successful G-code inspection. These are software checks, not physical prints.
+
+Warning tests cover pinned-source rules and catalog keys, multiline log records, multiple plates,
+deduplication, warnings before the log tail, failed jobs, incomplete jobs, malformed native results,
+wrong-revision rejection, GUI version mismatch, unknown messages and compact client responses.
+The 20,456-triangle stand regression checks the complete MCP diagnosis result stays below 60 KB,
+alongside the existing geometry and slice-inspection bounds. Full native messages stay on disk.
+MCP discovery exposes 30 tools and initialization reports package version 0.6.0.
+
+The GUI itself was not driven by these tests. Unsaved GUI state, GUI preset reload behavior on the
+user's current case, exact native feature coordinates and physical print quality remain unverified.
+
 ## Version 0.5.0 checks
 
 The 0.5.0 release suite on 2026-11-15 reported 165 passes and two skipped live tests.
@@ -136,7 +155,7 @@ The image contains no BambuStudio runtime or profiles. It cannot slice a model w
 Use the Dockerfile contents as the build spec in Glama Admin.
 Start a build after the repository update.
 Check the public Schema page after Glama completes introspection.
-The expected interface has 29 tools, six resources, one resource template, and one prompt.
+The expected interface has 30 tools, six resources, one resource template, and one prompt.
 The MCP initialization reports the installed `bambustudio-mcp` package version, not the SDK version.
 Version 0.3.0 adds conditional guidance for curves, detail, domes, flexible feed and support removal.
 Version 0.4.0 adds geometry preflight, highlighted issue locations and G-code comparisons.

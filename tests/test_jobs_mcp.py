@@ -177,7 +177,7 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
             assert "threaded shelf" in prompt.messages[0].content.text
             tools = await client.list_tools()
             assert {"list_options", "apply_settings", "edit_regions", "start_slice"} <= {t.name for t in tools.tools}
-            assert {"record_print_context", "get_print_guidance", "inspect_slice"} <= {t.name for t in tools.tools}
+            assert {"record_print_context", "get_print_guidance", "inspect_slice", "diagnose_warning"} <= {t.name for t in tools.tools}
             result = await client.call_tool("list_options", {"query": "wall_loops"})
             assert not result.isError
             assert 'Wall loops' in result.content[0].text
@@ -188,6 +188,11 @@ async def test_mcp_stdio_protocol(tmp_path, fake_runtime, project_file):
             assert "threads" in {c["id"] for c in json.loads(guide.contents[0].text)["categories"]}
             opened = await client.call_tool("open_project", {"path": str(project_file)})
             project = json.loads(opened.content[0].text)
+            diagnosis = await client.call_tool("diagnose_warning", {"project_id": project["project_id"],
+                "warning_text": "It seems object test part has floating regions. Please re-orient the object or enable support generation."})
+            assert not diagnosis.isError
+            assert diagnosis.structuredContent["reported_warning"]["rule_ids"] == ["floating_regions"]
+            assert diagnosis.structuredContent == json.loads(diagnosis.content[0].text)
             geometry = await client.call_tool("analyze_geometry", {"project_id": project["project_id"]})
             assert not geometry.isError
             assert json.loads(geometry.content[0].text)["report_path"].endswith("-geometry-report.json")
@@ -222,6 +227,11 @@ async def test_real_stand_geometry_over_stdio(tmp_path):
             report = json.loads(result.content[0].text)
             assert {'holes_lying_flat', 'print_in_place', 'bed_contact', 'faceting', 'clearances'} <= {
                 issue['category'] for issue in report['issues']}
+            diagnosis = await client.call_tool("diagnose_warning", {"project_id": project["project_id"],
+                "revision": project["revision"], "warning_text": "floating regions"})
+            assert not diagnosis.isError
+            assert len(diagnosis.model_dump_json(by_alias=True).encode()) < 60_000
+            assert diagnosis.structuredContent["geometry"]["related_issue_count"] > 0
             assert any(issue.get('clearance_region_count', 0) > 0 for issue in report['issues'])
             assert all('clearance_region_sample' not in issue for issue in report['issues'])
             assert result.structuredContent==report

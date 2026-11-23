@@ -14,6 +14,36 @@ from bambustudio_mcp.service import Service
 pytestmark = pytest.mark.skipif(not os.environ.get("BAMBUSTUDIO_TEST_MODEL"), reason="Live Studio/model paths not configured")
 
 
+def test_real_studio_warning_diagnosis(tmp_path):
+    import trimesh
+    from bambustudio_mcp.server import compact_result
+
+    base = trimesh.creation.box(extents=[6, 6, 10])
+    base.apply_translation([0, 0, 5])
+    island = trimesh.creation.box(extents=[4, 4, 2])
+    island.apply_translation([12, 0, 6])
+    source = tmp_path / "floating-control.stl"
+    trimesh.util.concatenate([base, island]).export(source)
+    service = Service(tmp_path / "native-warning", Runtime())
+    opened = service.open_project(str(source), "Bambu Lab P1S 0.4 nozzle", "0.20mm Standard @BBL X1C",
+                                  ["Bambu PLA Basic @BBL P1S 0.4 nozzle"])
+    pid, revision = opened["project_id"], opened["revision"]
+    edited = service.apply_settings(pid, revision, {"enable_support": False})
+    revision = edited["revision"]
+    service.analyze_geometry(pid, revision)
+    job = wait(service, service.start_slice(pid, revision))
+    assert any("floating_regions" in message["rule_ids"] for message in job["native_diagnostics"]["messages"]), job["native_diagnostics"]
+    diagnosis = service.diagnose_warning(pid, revision, "floating regions", job["job_id"], {"plate_index": 1}, "02.08.04.57")
+    assert diagnosis["reproduction"] == "warning_class_observed"
+    assert diagnosis["geometry"]["related_issue_count"] > 0
+    assert len(compact_result(diagnosis).model_dump_json(by_alias=True).encode()) < 60_000
+    assert service.inspect_slice(pid, revision, job["job_id"])["plates"]
+    supported = service.apply_settings(pid, revision, {"enable_support": True})
+    supported_job = wait(service, service.start_slice(pid, supported["revision"]))
+    diagnosis = service.diagnose_warning(pid, supported["revision"], "floating regions", supported_job["job_id"])
+    assert diagnosis["reproduction"] == "not_observed"
+
+
 def wait(service, job):
     end = time.monotonic() + 180
     while job["status"] in {"queued", "running"} and time.monotonic() < end:

@@ -274,7 +274,7 @@ async def test_preset_mcp_stdio_and_bad_optional_config_does_not_kill_core(prese
         async with ClientSession(read,write) as client:
             await client.initialize()
             tools=await client.list_tools()
-            assert len(tools.tools)==29 and {'apply_preset','derive_preset','restore_preset'}<={tool.name for tool in tools.tools}
+            assert len(tools.tools)==30 and {'apply_preset','derive_preset','restore_preset'}<={tool.name for tool in tools.tools}
             preview=await client.call_tool('create_preset',{'target':'desktop','kind':'process','base':PROCESS,'name':'MCP process','changes':{'wall_loops':3}})
             assert not preview.isError and json.loads(preview.content[0].text)['dry_run']
             made=await client.call_tool('create_preset',{'target':'desktop','kind':'process','base':PROCESS,'name':'MCP process','changes':{'wall_loops':3},'dry_run':False})

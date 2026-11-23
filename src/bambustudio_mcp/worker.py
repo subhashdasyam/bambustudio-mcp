@@ -84,6 +84,15 @@ def run(directory: Path):
     except Exception as error:
         state.update(status="failed", error=str(error))
     finally:
+        if request.get("kind") != "comparison":
+            from .diagnostics import collect_native, native_summary
+            try:
+                diagnostics = collect_native(directory)
+                atomic_json(directory / "diagnostics.json", diagnostics)
+                state["native_diagnostics"] = native_summary(diagnostics, directory / "diagnostics.json")
+                state.setdefault("artifacts", {})["native_diagnostics"] = "diagnostics.json"
+            except (ValueError, OSError, TypeError) as error:
+                state["native_diagnostics"] = {"status": "unknown", "error": str(error)}
         atomic_json(directory / "state.json", state)
 
 

@@ -46,7 +46,16 @@
    Distinguish commanded extrusion in nominal gaps from physical fusion or sag.
    Review bridge lengths/directions, cosmetic seam candidates, top-crossing travel and sampled ironing coverage.
 
-9. Export a new project and review it in Studio. Design a physical baseline/candidate comparison using
+9. For a GUI slice warning, call `diagnose_warning` first with the exact text, saved revision,
+   object/plate target and GUI version when known. Save GUI edits to a new file and open that file
+   in MCP before reproduction. Review `get_job.native_diagnostics`; pass the matching individual
+   slice job ID to `diagnose_warning`. Read scoped settings and related geometry candidates, then
+   check actual paths with `inspect_slice`. Geometry candidates are not native warning coordinates.
+   No CLI warning observed does not mean resolved in the GUI. Unsaved state is not synchronized.
+   For unknown messages, inspect local artifacts first; source research is a last fallback using
+   the matching Studio version and source revision, never an assumed match with upstream master.
+
+10. Export a new project and review it in Studio. Design a physical baseline/candidate comparison using
    repeated prints, duration measurements, dimensional checks, defined finish inspection and loads
    representative of intended use. Report strength and finish as unverified until those results exist.
 

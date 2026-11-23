@@ -69,6 +69,11 @@ Use physical observations for the tested revision. Do not transfer a finish resu
 
 ## Use a baseline and a small comparison
 
+For a GUI slice warning, use [the warning-diagnosis workflow](warning-diagnosis.md) first.
+`get_job.native_diagnostics` explains recognized native messages, and `diagnose_warning` ties the
+reported warning to the exact saved revision, scoped settings and related geometry candidates.
+Unknown messages remain unknown; external source research is a version-matched last fallback.
+
 1. Call `get_environment` to check the runtime.
 2. Call `open_project` to create a project copy.
 3. Read `bambustudio://guide` for the preparation procedure.

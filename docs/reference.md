@@ -2,7 +2,7 @@
 
 [README](../README.md) · [Print preparation](usage.md)
 
-The server exposes 29 tools over MCP stdio. Tool discovery supplies the current input schemas.
+The server exposes 30 tools over MCP stdio. Tool discovery supplies the current input schemas.
 
 ## Tools
 
@@ -16,13 +16,14 @@ The server exposes 29 tools over MCP stdio. Tool discovery supplies the current 
 | `get_settings` | Read values and their origin at a selected scope |
 | `record_print_context` | Record declared printer, active nozzles, assigned spools, calibration and physical observations |
 | `get_print_guidance` | Report missing inputs, setup mismatches, stale calibration and sourced rules for selected concerns |
+| `diagnose_warning` | Explain native/GUI slice warnings with versioned rules, scoped settings and exact-revision job evidence |
 | `inspect_slice` | Inspect embedded G-code targets, nominal object layers and feature feed commands without execution |
 | `apply_settings` | Validate a batch and create a new revision |
 | `restore_revision` | Copy a historical revision into a new head |
 | `analyze_geometry` | Measure geometry and create SVG previews |
 | `edit_regions` | Apply orientation, paint, modifiers, height ranges, or layer profiles |
 | `start_slice` | Start a detached BambuStudio slice job |
-| `get_job` | Read persistent job status, log excerpts, estimates, and output paths |
+| `get_job` | Read persistent job status, native warning explanations, log excerpts, estimates, and output paths |
 | `cancel_job` | Cancel a job and terminate its Studio subprocesses |
 | `compare_candidates` | Compare the baseline with one to seven alternatives |
 | `export_project` | Export a revision to a new destination |
@@ -40,6 +41,7 @@ The server exposes 29 tools over MCP stdio. Tool discovery supplies the current 
 
 Read the [reusable-preset guide](reusable-presets.md) for target configuration, storage layouts, SSH and activation limits.
 Storage writes and project application default to dry-run. Preset storage does not require a Studio executable.
+Read [warning diagnosis](warning-diagnosis.md) for native warning collection, GUI version checks and evidence limits.
 
 ## Resources and prompt
 

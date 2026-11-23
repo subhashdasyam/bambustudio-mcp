@@ -1,0 +1,59 @@
+{
+  "studio_version": "02.08.04.57",
+  "source_revision": "79df7ae309be398ed30c9f397c13c9911c2edc57",
+  "rules": {
+    "floating_regions": {
+      "phrases": ["floating regions"],
+      "pattern": "^it seems object .+? has floating regions\\.",
+      "meaning": "Studio's support-necessity detector found sharp-tail regions when support was unavailable. This is not the same test as the MCP's nominal-layer floating-island heuristic.",
+      "categories": ["floating_islands", "bed_contact", "overhangs", "holes_lying_flat", "bridges"],
+      "settings": ["enable_support", "support_type", "support_on_build_plate_only", "support_threshold_angle"],
+      "next_steps": ["Inspect the named object's underside and earliest affected layers in the highlighted geometry preview and Studio Preview.", "Compare reorientation or a supported candidate. Check whether supports can reach the region; support paint alone does not enable supports.", "For a moving joint, preserve mating clearances and compare a small cut-out test piece before the full print."],
+      "sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintObject.cpp#L1270-L1305", "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintObject.cpp#L4657-L4672"]
+    },
+    "floating_cantilever": {
+      "phrases": ["floating cantilever"],
+      "pattern": "^it seems object .+? has floating cantilever\\.",
+      "meaning": "Studio's support-necessity check found a cantilever beyond its native distance criterion while support was unavailable. That criterion is not a universal printable bridge limit.",
+      "categories": ["overhangs", "bridges", "floating_islands"],
+      "settings": ["enable_support", "support_type", "support_on_build_plate_only", "support_threshold_angle"],
+      "next_steps": ["Inspect the cantilever underside and support reachability. Compare reorientation or a supported revision against the unchanged baseline."],
+      "sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintObject.cpp#L4657-L4672"]
+    },
+    "support_enforcers_disabled": {
+      "phrases": ["support enforcers are used but support is not enabled"],
+      "pattern": "^support enforcers are used but support is not enabled\\.",
+      "meaning": "Studio found an enforcer volume or painted support enforcer on an object without active support. Painting an enforcer does not itself switch support on.",
+      "categories": ["overhangs", "floating_islands"],
+      "settings": ["enable_support", "support_type", "enforce_support_layers"],
+      "next_steps": ["Read enable_support and support_type at project and object scope; inspect enforcer volumes and painted supports.", "Enable the intended support mode in a new revision, or remove unwanted enforcers. Re-slice and verify generated support paths.", "If saved settings disagree with the GUI after reopening, save the GUI project under a new filename and reopen that exact file in MCP. Compare overrides; unsaved GUI state and preset reloads are not synchronized."],
+      "sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/Print.cpp#L1637-L1654"]
+    },
+    "support_incomplete": {
+      "phrases": ["unsupported overhangs were detected"],
+      "pattern": "^unsupported overhangs were detected\\.",
+      "meaning": "Studio's tree-support coverage check found significant overhang regions without support. Enabling supports alone does not establish coverage.",
+      "categories": ["overhangs", "bridges", "holes_lying_flat", "floating_islands"],
+      "settings": ["enable_support", "support_type", "support_style", "support_on_build_plate_only", "support_threshold_angle"],
+      "next_steps": ["Inspect blockers, painted regions and whether supports can reach the underside.", "If the native message names build-plate-only, compare disabling support_on_build_plate_only in a new revision. Check support removal, cosmetic contact and moving-part clearances before choosing the candidate."],
+      "sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/PrintObject.cpp#L4410-L4488"]
+    },
+    "empty_gcode_layers": {
+      "phrases": ["can't be printed for empty layer"],
+      "pattern": "^object can't be printed for empty layer between ",
+      "meaning": "Studio found empty extrusion layers between printable layers. Thin sections or a faulty mesh can be responsible; the native message may include Z ranges and several objects.",
+      "categories": ["thin_features", "floating_islands"],
+      "settings": ["layer_height", "line_width", "wall_generator", "detect_thin_wall"],
+      "next_steps": ["Inspect the native Z ranges, mesh integrity and section thickness against the installed nozzle's line width and layer height.", "Repair or thicken the design, or compare compatible finer layers or wall-generation settings. Do not treat an empty-layer warning as solved by adding infill."],
+      "sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/GCode.cpp#L1576-L1594", "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/libslic3r/GCode.cpp#L1610-L1648"]
+    }
+  },
+  "limitations": [
+    "The rules describe the pinned source version. A different GUI version requires version-specific verification.",
+    "English message recognition is heuristic. Unknown or translated messages remain unknown and retain their original text.",
+    "Native warnings generally do not provide feature coordinates. Geometry links are related candidates, not confirmed native warning locations.",
+    "The CLI result retains only the last warning per plate. Job-log warning records can recover additional messages, but missing records never establish that a warning is resolved.",
+    "No diagnosis proves physical fit, strength, surface finish or successful support removal."
+  ],
+  "collection_sources": ["https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/BambuStudio.cpp#L7070-L7138", "https://github.com/bambulab/BambuStudio/blob/79df7ae309be398ed30c9f397c13c9911c2edc57/src/BambuStudio.cpp#L7212-L7241"]
+}

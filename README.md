@@ -12,7 +12,11 @@
 Give Claude Code or Codex the tools to inspect a part, change its print configuration, and compare actual BambuStudio slices.
 
 **STL or 3MF in. Configured 3MF out.**
-Current release: [0.5.0](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.5.0).
+Current release: [0.6.0](https://github.com/subhashdasyam/bambustudio-mcp/releases/tag/0.6.0).
+
+Slice warnings now have a built-in diagnosis workflow. `get_job` explains recognized native warnings;
+`diagnose_warning` compares GUI messages with saved settings, geometry candidates and exact-revision job evidence.
+See [warning diagnosis](docs/warning-diagnosis.md) before searching upstream source.
 
 Reusable process and filament libraries now support configured local or SSH targets, previews, revision guards and backup/restore.
 Apply selected preset settings to a project as a new revision after checking printer/nozzle and material-slot compatibility.
@@ -40,6 +44,7 @@ The source project stays unchanged.
 | Compare the cost | The unchanged baseline plus up to seven alternatives, with time and filament estimates |
 | Keep useful experiments | Project revisions, history restore, and export to a new file |
 | Search the controls | A versioned catalog of 603 source-derived FFF options, with types, units, ranges, and scope rules |
+| Understand a slice warning | Native messages, versioned explanations, scoped settings and related geometry candidates |
 
 **Strength and surface quality need physical checks.** Geometry and slice estimates do not prove either result.
 The catalog has explicit restrictions. It does not mean that every GUI control or option combination has complete verification.
@@ -211,13 +216,14 @@ Saved 3MF projects retain their configuration.
 | [Installation](docs/installation.md) | Official AppImage, extraction, checksums, profiles, workspace, and runtime problems |
 | [Claude Code and Codex](docs/clients.md) | CLI setup, saved paths, connection checks, and the `--env` error |
 | [Print preparation](docs/usage.md) | Useful input, candidate comparisons, revisions, and physical checks |
-| [Tool reference](docs/reference.md) | All 29 tools, resources, scopes, value types, and spatial edits |
+| [Tool reference](docs/reference.md) | All 30 tools, resources, scopes, value types, and spatial edits |
+| [Warning diagnosis](docs/warning-diagnosis.md) | Native warning explanations, saved settings, reproduction and GUI limits |
 | [Reusable presets](docs/reusable-presets.md) | Process and filament libraries, local/SSH targets, backups, and project application |
 | [Verification and limits](docs/verification.md) | Recorded evidence, repeatable checks, coverage gaps, and development checks |
 
 ## 🔎 Evidence, without the magic claims
 
-Version 0.5.0 checks report **165 automated passes** and two separate real BambuStudio slicing checks.
+Version 0.6.0 checks report **183 automated passes** and three separate real BambuStudio integration checks.
 Earlier records also cover Claude Code and Codex workflows.
 See the [evidence and its limits](docs/verification.md) before you interpret these results.
 
